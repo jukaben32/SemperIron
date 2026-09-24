@@ -24,16 +24,10 @@ import {
   Star, 
   Award, 
   ArrowRight, 
-  X,
-  Hammer,
   Layers,
   FileText,
   DollarSign,
-  Printer,
-  MessageCircle,
-  Plus,
-  Trash2,
-  Receipt
+  Hammer
 } from 'lucide-react';
 
 // Iconos de marcas sociales (SVG inline porque lucide-react no incluye marcas)
@@ -55,15 +49,14 @@ const TiktokIcon = ({ className = '' }) => (
   </svg>
 );
 
-// Estilos reutilizables para la tabla del documento imprimible (PDF)
-const printTh = { padding: '8px 10px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#334155', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '11px', textAlign: 'left' };
-const printTd = { padding: '10px', border: '1px solid #e2e8f0', color: '#0f172a', verticalAlign: 'top' };
-
 export default function App() {
   // Navigation & Modal states
-  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [selectedServiceFilter, setSelectedServiceFilter] = useState('all');
   const [activeFaq, setActiveFaq] = useState(null);
+
+  // Controla el formulario de "Solicitar cotización" (widget de leads de la landing)
+  const [quoteRequestOpen, setQuoteRequestOpen] = useState(false);
+  const [leadPrefill, setLeadPrefill] = useState('');
 
   // Estimator Form state
   const [estimatorData, setEstimatorData] = useState({
@@ -76,24 +69,7 @@ export default function App() {
 
   const [calculatedCost, setCalculatedCost] = useState(0);
 
-  // Formulario de cliente (compartido por presupuesto, cotización y factura)
-  const [formData, setFormData] = useState({
-    fullName: '',
-    phone: '',
-    email: '',
-    address: '',
-    serviceType: 'Mobile Repair / Patch Work',
-    urgency: 'Standard Schedule (1-3 Days)',
-    description: ''
-  });
-
-  // Generador de documentos: tipo (presupuesto/cotización/factura), líneas e impuestos
-  const [docType, setDocType] = useState('estimate');
-  const [docItems, setDocItems] = useState([{ id: 1, description: '', qty: 1, unit: 'hr', price: 0 }]);
-  const [taxRate, setTaxRate] = useState(8);
-  const [docResult, setDocResult] = useState(null);
-
-  // Etiquetas y tarifas usadas tanto por el estimador como por el generador de PDF
+  // Etiquetas y tarifas usadas por el estimador de costos
   const SERVICE_LABELS = {
     repair: 'Mobile Repair / Patch Work',
     structural: 'Structural Steel Beam Welding',
@@ -121,46 +97,6 @@ export default function App() {
     address: 'Central Hub, Metro Service Area',
     tagline: 'AWS D1.1 Certified • OSHA 30 • Fully Insured'
   };
-
-  // Datos bancarios para cobro (método de pago habitual del soldador)
-  const BANK = {
-    bank: 'Banreservas',
-    accountNumber: '9605023620',
-    accountName: 'Milton Rafael Semper Ortiz',
-    identification: '023-0102370-7'
-  };
-
-  // Tipos de documento: presupuesto, cotización y factura. Cada uno adapta
-  // el título del encabezado, el prefijo del número, los impuestos y los términos.
-  const DOC_TYPES = {
-    estimate: {
-      label: 'Cost Estimate',
-      title: 'COST ESTIMATE',
-      numberPrefix: 'EST',
-      validity: 'This cost estimate is valid for 15 days from the date above. Final charges may vary with on-site conditions, material prices, and power access.',
-      payTerms: 'Advance: 50% deposit to schedule the job. Balance due upon completion.',
-      footer: 'Estimates are non-binding and become a fixed quotation only after written acceptance.'
-    },
-    quote: {
-      label: 'Quotation',
-      title: 'QUOTATION',
-      numberPrefix: 'QTE',
-      validity: 'This quotation is valid for 30 days from the date above. Changes to scope, material, or site conditions may adjust the quoted price.',
-      payTerms: 'Advance: 50% deposit to confirm the job and order materials. Balance due on completion.',
-      footer: 'Work is authorized upon confirmation of accepted terms. Labor warranty covers workmanship only.'
-    },
-    invoice: {
-      label: 'Invoice',
-      title: 'INVOICE',
-      numberPrefix: 'INV',
-      validity: 'Please remit payment within 15 days of the invoice date. Late payments are subject to a 1.5% monthly service charge.',
-      payTerms: 'Advance paid at booking was deducted from this balance. Payment due within 15 days.',
-      footer: 'Thank you for your business. Mobile dispatch (809) 256-3749.'
-    }
-  };
-
-  // Formatea un número como moneda en dólares
-  const money = (n) => '$' + Math.round(n).toLocaleString('en-US');
 
   // Calcula el desglose completo de un presupuesto a partir de los datos del estimador
   const computeQuote = (est, serviceLabel) => {
@@ -193,81 +129,23 @@ export default function App() {
     };
   };
 
-  // Genera un número de documento único según su prefijo: EST-2026-4821, QTE-2026-7731 o INV-2026-9044
-  const generateDocNumber = (prefix) => {
-    const year = new Date().getFullYear();
-    const seq = String(Math.floor(1000 + Math.random() * 9000));
-    return `${prefix}-${year}-${seq}`;
-  };
-
-  // Abre el modal del generador en modo de formulario vacío
-  const openQuoteModal = () => {
-    setDocResult(null);
-    setDocType('estimate');
-    setDocItems([{ id: Date.now(), description: '', qty: 1, unit: 'hr', price: 0 }]);
-    setIsQuoteModalOpen(true);
-  };
-
-  // Llena el generador con los datos elegidos en el estimador (una línea por concepto)
-  const handleBookEstimate = () => {
+  // Abre el formulario de "Solicitar cotización" con el resumen del estimador prellenado,
+  // para que el visitante envíe el lead (el generador de documentos vive en el panel /admin).
+  const handleBookEstimateRequest = () => {
     const est = estimatorData;
-    const serviceLabel = SERVICE_LABELS[est.serviceType];
+    const serviceLabel = SERVICE_LABELS[est.serviceType] || 'Mobile Repair / Patch Work';
     const metal = METAL_LABELS[est.metalType] || METAL_LABELS.carbon_steel;
     const urgency = URGENCY_FEES[est.urgency] || URGENCY_FEES.standard;
     const quote = computeQuote(est, serviceLabel);
-    const rateWithMaterial = Math.round(quote.baseRate * metal.mult);
 
-    const lines = [{
-      id: Date.now(),
-      description: `On-site ${serviceLabel} on ${metal.label}${metal.mult > 1 ? ` (material factor ×${metal.mult})` : ''}`,
-      qty: est.estimatedHours,
-      unit: 'hr',
-      price: rateWithMaterial
-    }];
-    if (urgency.fee > 0) lines.push({ id: Date.now() + 1, description: `Urgency surcharge — ${urgency.label}`, qty: 1, unit: 'flat', price: urgency.fee });
-    if (est.requiresGenPower) lines.push({ id: Date.now() + 2, description: 'Mobile 12kW generator power supply', qty: 1, unit: 'flat', price: 75 });
-
-    setDocType('estimate');
-    setDocResult(null);
-    setDocItems(lines);
-    setFormData((prev) => ({
-      ...prev,
-      serviceType: serviceLabel,
-      urgency: urgency.label,
-      description: `Estimated ${est.estimatedHours} hrs of work on ${metal.label}. Materials, consumables and site conditions to be confirmed on arrival.`
-    }));
-    setIsQuoteModalOpen(true);
-  };
-
-  // Envía por WhatsApp un resumen legible del documento generado
-  const sendViaWhatsApp = () => {
-    if (!docResult) return;
-    const d = docResult;
-    const meta = DOC_TYPES[d.type];
-    const lines = d.items.map((it) => `• ${it.description} — ${it.qty} ${it.unit} × ${money(it.price)} = ${money(it.qty * it.price)}`);
-    const msg = [
-      `*${meta.title} #${d.number}* - ${COMPANY.name}`,
-      `Date: ${d.date}`,
-      d.dueDate ? `Due: ${d.dueDate}` : '',
-      ``,
-      `*Client:* ${d.customer.fullName}`,
-      `*Phone:* ${d.customer.phone}`,
-      d.customer.address ? `*Site:* ${d.customer.address}` : '',
-      d.customer.email ? `*Email:* ${d.customer.email}` : '',
-      ``,
-      ...lines,
-      ``,
-      d.type === 'invoice' ? `*Subtotal: ${money(d.subtotal)}*` : '',
-      d.type === 'invoice' ? `*Tax (${d.taxRate}%): ${money(d.tax)}*` : '',
-      `*TOTAL: ${money(d.total)}*`,
-      ``,
-      `*Payment:* ${BANK.bank} — Account ${BANK.accountNumber}`,
-      `Name: ${BANK.accountName} (Cédula ${BANK.identification})`,
-      meta.payTerms,
-      ``,
-      d.type === 'invoice' ? 'Payment due within 15 days of the invoice date.' : `Hi ${d.customer.fullName.split(' ')[0]}, confirming the above ${meta.label.toLowerCase()}. Is the schedule good for us to dispatch?`
-    ].filter(Boolean).join('\n');
-    window.open(`https://wa.me/${COMPANY.phoneHref}?text=${encodeURIComponent(msg)}`, '_blank');
+    const msg =
+      `Solicito una cotización para: ${serviceLabel} en ${metal.label}.\n` +
+      `Horas estimadas: ${est.estimatedHours} hrs.\n` +
+      `Urgencia: ${urgency.label}.\n` +
+      (est.requiresGenPower ? 'Incluye generador móvil de 12kW (+$75).\n' : '') +
+      `Total estimado: $${Math.round(quote.total)} USD.`;
+    setLeadPrefill(msg);
+    setQuoteRequestOpen(true);
   };
 
   // Real-time dynamic cost calculation logic
@@ -290,70 +168,6 @@ export default function App() {
     const total = (baseRate * estimatorData.estimatedHours * metalMultiplier) + urgencyFee + powerFee;
     setCalculatedCost(Math.round(total));
   }, [estimatorData]);
-
-  // Añade, elimina o actualiza líneas de ítems del documento
-  const addDocItem = () => setDocItems([...docItems, { id: Date.now(), description: '', qty: 1, unit: 'hr', price: 0 }]);
-  const removeDocItem = (id) => setDocItems(docItems.length > 1 ? docItems.filter((it) => it.id !== id) : docItems);
-  const updateDocItem = (id, field, value) => setDocItems(docItems.map((it) => (it.id === id ? { ...it, [field]: value } : it)));
-
-  // Total en vivo de las líneas (y del impuesto si es factura)
-  const itemsTotal = docItems.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
-  const itemsTax = (Number(taxRate) || 0) / 100 * itemsTotal;
-  const grandTotal = docType === 'invoice' ? itemsTotal + itemsTax : itemsTotal;
-
-  // Genera el documento final (presupuesto, cotización o factura) con su desglose
-  const handleDocSubmit = (e) => {
-    e.preventDefault();
-    const validItems = docItems.filter((it) => it.description.trim());
-    const subtotal = validItems.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
-    const useTax = docType === 'invoice';
-    const tax = useTax ? subtotal * (Number(taxRate) || 0) / 100 : 0;
-    const meta = DOC_TYPES[docType];
-    const today = new Date();
-    const dateStr = today.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    const due = new Date(today);
-    due.setDate(due.getDate() + 15);
-    const dueStr = due.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-
-    const docNumber = generateDocNumber(meta.numberPrefix);
-
-    setDocResult({
-      type: docType,
-      number: docNumber,
-      date: dateStr,
-      dueDate: useTax ? dueStr : null,
-      customer: {
-        fullName: formData.fullName,
-        phone: formData.phone,
-        email: formData.email,
-        address: formData.address
-      },
-      items: validItems,
-      description: formData.description,
-      taxRate: useTax ? Number(taxRate) : 0,
-      subtotal,
-      tax,
-      total: subtotal + tax
-    });
-
-    // Captura el lead silenciosamente (si la API falla, la landing sigue funcionando normal)
-    try {
-      fetch('/api/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: formData.fullName,
-          phone: formData.phone,
-          email: formData.email,
-          zone: formData.address,
-          projectType: docType,
-          preferredDate: '',
-          message: `Solicitud de ${meta.label} (${docNumber})`,
-          source: 'form-cotizacion'
-        })
-      }).catch((err) => {});
-    } catch (err) {}
-  };
 
   const projects = [
     {
@@ -441,7 +255,7 @@ export default function App() {
 
   return (
     <>
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased selection:bg-amber-500 selection:text-slate-950 print:hidden">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased selection:bg-amber-500 selection:text-slate-950">
       
       {}
       <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-600 text-slate-950 text-xs sm:text-sm font-semibold py-2 px-4 shadow-lg sticky top-0 z-50">
@@ -458,7 +272,7 @@ export default function App() {
             </a>
             <span className="text-slate-900/40">|</span>
             <button 
-              onClick={openQuoteModal}
+              onClick={() => setQuoteRequestOpen(true)}
               className="text-xs bg-slate-950 text-amber-400 px-3 py-1 rounded-md font-bold hover:bg-slate-900 transition-colors"
             >
               Dispatch Rig
@@ -492,7 +306,7 @@ export default function App() {
 
           <div className="flex items-center gap-3">
             <button 
-              onClick={openQuoteModal}
+              onClick={() => setQuoteRequestOpen(true)}
               className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-extrabold rounded-lg shadow-md hover:shadow-orange-500/25 transition-all text-sm flex items-center gap-2"
             >
               <Calculator className="w-4 h-4" />
@@ -548,7 +362,7 @@ export default function App() {
               {/* CTA Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 pt-4 justify-center lg:justify-start">
                 <button 
-                  onClick={openQuoteModal}
+                  onClick={() => setQuoteRequestOpen(true)}
                   className="px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-extrabold text-base rounded-xl shadow-xl shadow-orange-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                 >
                   <FileText className="w-5 h-5" />
@@ -869,7 +683,7 @@ href="tel:18092563749"
                   <span className="text-3xl font-black text-amber-400">${calculatedCost} <span className="text-xs font-normal text-slate-400">USD (Approx.)</span></span>
                 </div>
                 <button 
-                  onClick={handleBookEstimate}
+                  onClick={handleBookEstimateRequest}
                   className="w-full sm:w-auto px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold rounded-lg text-sm transition-colors"
                 >
                   Book This Estimate
@@ -1072,7 +886,7 @@ href="tel:18092563749"
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
             <button 
-              onClick={openQuoteModal}
+              onClick={() => setQuoteRequestOpen(true)}
               className="w-full sm:w-auto px-8 py-4 bg-slate-950 text-white hover:bg-slate-900 font-black rounded-xl shadow-2xl transition-all flex items-center justify-center gap-3 text-base"
             >
               <Calculator className="w-5 h-5 text-amber-400" />
@@ -1097,7 +911,7 @@ href="tel:18092563749"
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-3">
             <a
-              href="#"
+              href="https://web.facebook.com/miltonrafael.semperortiz"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-300 transition hover:border-amber-500 hover:text-amber-400"
@@ -1150,479 +964,10 @@ href="tel:18092563749"
         </div>
       </footer>
 
-      {}
-      {isQuoteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 sm:p-8 relative shadow-2xl">
-            
-            <button 
-              onClick={() => setIsQuoteModalOpen(false)}
-              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-lg bg-slate-800/50"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {docResult ? (
-              <div className="space-y-5">
-                <div className="mb-2">
-                  <span className="text-xs font-bold text-amber-500 uppercase tracking-widest block mb-1"><Receipt className="w-3.5 h-3.5 inline mr-1" />Document Generated</span>
-                  <h3 className="text-2xl font-black text-white uppercase">{DOC_TYPES[docResult.type].title}</h3>
-                  <p className="text-xs text-slate-400 mt-1">
-                    #{docResult.number} • {docResult.date}
-                    {docResult.dueDate ? ` • Due: ${docResult.dueDate}` : ''} — prepared for {docResult.customer.fullName}
-                  </p>
-                </div>
-
-                <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
-                  {/* Encabezados de la tabla de la cotización */}
-                  <div className="grid grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-5 py-2 bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                    <span>Line Item</span>
-                    <span className="text-right">Cantidad</span>
-                    <span className="text-right">Precio</span>
-                    <span className="text-right">Total</span>
-                  </div>
-                  <div className="divide-y divide-slate-800 text-sm">
-                    {docResult.items.map((it, i) => (
-                      <div key={i} className="grid grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-5 py-3 items-center">
-                        <span className="text-slate-300 pr-2">{it.description}</span>
-                        <span className="text-right text-slate-400">{it.qty} {it.unit}</span>
-                        <span className="text-right text-slate-400">{money(it.price)}</span>
-                        <span className="text-right text-white font-semibold">{money(it.qty * it.price)}</span>
-                      </div>
-                    ))}
-                    {docResult.type === 'invoice' && (
-                      <>
-                        <div className="grid grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-5 py-3">
-                          <span className="col-span-3 text-slate-400 pr-4">Subtotal</span>
-                          <span className="text-right text-white font-semibold shrink-0">{money(docResult.subtotal)}</span>
-                        </div>
-                        <div className="grid grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-5 py-3">
-                          <span className="col-span-3 text-slate-400 pr-4">Tax ({docResult.taxRate}%)</span>
-                          <span className="text-right text-white font-semibold shrink-0">{money(docResult.tax)}</span>
-                        </div>
-                      </>
-                    )}
-                    <div className="grid grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-5 py-4 bg-amber-500/10 items-center">
-                      <span className="col-span-3 text-white font-black uppercase tracking-wide">{docResult.type === 'invoice' ? 'Amount Due' : 'Document Total'}</span>
-                      <span className="text-right text-amber-400 text-xl font-black">{money(docResult.total)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Datos de pago visibles en pantalla: banco, cuenta y cédula */}
-                <div className="bg-slate-950 rounded-xl border border-amber-500/30 overflow-hidden">
-                  <div className="px-5 py-3 border-b border-amber-500/20 bg-amber-500/5">
-                    <span className="text-[11px] font-black text-amber-400 uppercase tracking-widest">Payment — Bank Transfer / Deposit</span>
-                  </div>
-                  <div className="px-5 py-3 text-sm space-y-1">
-                    <div className="flex justify-between gap-4">
-                      <span className="text-slate-400">Bank</span>
-                      <span className="text-white font-semibold">{BANK.bank}</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-slate-400">Account #</span>
-                      <span className="text-white font-semibold">{BANK.accountNumber}</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-slate-400">Name</span>
-                      <span className="text-white font-semibold">{BANK.accountName}</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-slate-400">ID (Cédula)</span>
-                      <span className="text-white font-semibold">{BANK.identification}</span>
-                    </div>
-                    <div className="pt-2 mt-1 border-t border-slate-800 text-xs text-amber-300/90 leading-relaxed">
-                      {DOC_TYPES[docResult.type].payTerms} Include the {DOC_TYPES[docResult.type].numberPrefix} number as payment reference.
-                    </div>
-                  </div>
-                </div>
-
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Send this {DOC_TYPES[docResult.type].label.toLowerCase()} to your client as a PDF or via WhatsApp.
-                  The PDF opens the browser print dialog — choose "Save as PDF" as destination.
-                </p>
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    onClick={() => window.print()}
-                    className="flex-1 py-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black text-sm rounded-xl flex items-center justify-center gap-2 transition-colors"
-                  >
-                    <Printer className="w-4 h-4" />
-                    Download PDF
-                  </button>
-                  <button
-                    onClick={sendViaWhatsApp}
-                    className="flex-1 py-3.5 bg-green-600 hover:bg-green-500 text-white font-black text-sm rounded-xl flex items-center justify-center gap-2 transition-colors"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    Send via WhatsApp
-                  </button>
-                </div>
-
-                <button
-                  onClick={() => setDocResult(null)}
-                  className="w-full py-2 text-xs text-slate-400 hover:text-white font-bold transition-colors"
-                >
-                  ← Back to {DOC_TYPES[docType].label} form
-                </button>
-              </div>
-            ) : (
-              <div>
-                <div className="mb-6">
-                  <span className="text-xs font-bold text-amber-500 uppercase tracking-widest block mb-1">Business Document Generator</span>
-                  <h3 className="text-2xl font-black text-white uppercase">Estimate • Quote • Invoice</h3>
-                  <p className="text-xs text-slate-400 mt-1">Create a professional, print-ready document for your client.</p>
-                </div>
-
-                <form onSubmit={handleDocSubmit} className="space-y-4">
-
-                  {/* Tipo de documento */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 uppercase mb-2">Document Type</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {Object.keys(DOC_TYPES).map((key) => (
-                        <button
-                          type="button"
-                          key={key}
-                          onClick={() => setDocType(key)}
-                          className={`px-3 py-3 rounded-xl border text-[11px] font-bold uppercase tracking-wide transition-all ${
-                            docType === key
-                              ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-md shadow-amber-500/20'
-                              : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-white'
-                          }`}
-                        >
-                          {DOC_TYPES[key].label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Full Name *</label>
-                      <input 
-                        type="text" 
-                        required
-                        placeholder="John Doe"
-                        value={formData.fullName}
-                        onChange={(e) => setFormData({...formData, fullName: e.target.value})}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-amber-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Phone Number *</label>
-                      <input 
-                        type="tel" 
-                        required
-                        placeholder="(555) 000-0000"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-amber-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Email (for delivery)</label>
-                    <input 
-                      type="email"
-                      placeholder="john.doe@company.com"
-                      value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Site Location / Address *</label>
-                    <input 
-                      type="text" 
-                      required
-                      placeholder="123 Industrial Pkwy, City, State"
-                      value={formData.address}
-                      onChange={(e) => setFormData({...formData, address: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-
-                  {/* Líneas de ítems */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 uppercase mb-2">Line Items</label>
-                    {/* Encabezados de las columnas del documento */}
-                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">
-                      <span className="flex-1">Line Item</span>
-                      <span className="w-40">Cantidad</span>
-                      <span className="w-24 text-right">Precio</span>
-                      <span className="w-24 text-right">Total</span>
-                      <span className="w-9" />
-                    </div>
-                    <div className="space-y-2">
-                      {docItems.map((item, idx) => (
-                        <div key={item.id} className="flex items-center gap-2">
-                          <input
-                            value={item.description}
-                            onChange={(e) => updateDocItem(item.id, 'description', e.target.value)}
-                            placeholder={`Item ${idx + 1} description (e.g. Structural beam weld)`}
-                            className="flex-1 min-w-0 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
-                          />
-                          <div className="flex gap-1 shrink-0 w-40">
-                            <input
-                              type="number" min="0" step="1"
-                              value={item.qty}
-                              onChange={(e) => updateDocItem(item.id, 'qty', e.target.value)}
-                              className="w-16 bg-slate-950 border border-slate-800 rounded-lg px-2 py-2.5 text-sm text-white text-center focus:outline-none focus:border-amber-500"
-                            />
-                            <select
-                              value={item.unit}
-                              onChange={(e) => updateDocItem(item.id, 'unit', e.target.value)}
-                              className="flex-1 min-w-0 bg-slate-950 border border-slate-800 rounded-lg px-2 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
-                            >
-                              <option value="hr">hr</option>
-                              <option value="job">job</option>
-                              <option value="ft">ft</option>
-                              <option value="lb">lb</option>
-                              <option value="unit">unit</option>
-                              <option value="flat">flat</option>
-                            </select>
-                          </div>
-                          <input
-                            type="number" min="0" step="0.01"
-                            value={item.price}
-                            onChange={(e) => updateDocItem(item.id, 'price', e.target.value)}
-                            placeholder="Precio"
-                            className="w-24 bg-slate-950 border border-slate-800 rounded-lg px-2 py-2.5 text-sm text-white text-right focus:outline-none focus:border-amber-500"
-                          />
-                          <span className="w-24 shrink-0 text-right text-sm text-amber-400 font-semibold">
-                            {money((Number(item.qty) || 0) * (Number(item.price) || 0))}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => removeDocItem(item.id)}
-                            disabled={docItems.length === 1}
-                            className="p-2.5 w-9 shrink-0 text-slate-500 hover:text-red-400 disabled:opacity-30 rounded-lg hover:bg-slate-800 transition-colors"
-                            title="Remove line"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={addDocItem}
-                      className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 transition-colors"
-                    >
-                      <Plus className="w-4 h-4" /> Add line item
-                    </button>
-                  </div>
-
-                  {/* Impuestos (solo factura) */}
-                  {docType === 'invoice' && (
-                    <div>
-                      <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Tax Rate (%)</label>
-                      <input 
-                        type="number" min="0" max="30" step="0.1"
-                        value={taxRate}
-                        onChange={(e) => setTaxRate(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-amber-500"
-                      />
-                    </div>
-                  )}
-
-                  {/* Total en vivo */}
-                  <div className="bg-slate-950 rounded-xl border border-slate-800 p-4 text-sm">
-                    <div className="flex justify-between text-slate-400">
-                      <span>Subtotal</span>
-                      <span className="text-white font-semibold">{money(itemsTotal)}</span>
-                    </div>
-                    {docType === 'invoice' && (
-                      <div className="flex justify-between text-slate-400">
-                        <span>Tax ({taxRate}%)</span>
-                        <span className="text-white font-semibold">{money(itemsTax)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-slate-300 font-bold border-t border-slate-800 pt-2 mt-1">
-                      <span className="uppercase tracking-wide">{docType === 'invoice' ? 'Amount Due' : 'Document Total'}</span>
-                      <span className="text-amber-400">{money(grandTotal)}</span>
-                    </div>
-                  </div>
-
-                  {/* Datos de pago visibles en pantalla: banco, cuenta y cédula */}
-                  <div className="bg-slate-950 rounded-xl border border-amber-500/30 p-4 text-xs space-y-1">
-                    <div className="font-black text-amber-400 uppercase tracking-widest text-[11px] mb-1">Payment — Bank Transfer / Deposit</div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-slate-400">{BANK.bank} · Account</span>
-                      <span className="text-white font-bold">{BANK.accountNumber}</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-slate-400">Name</span>
-                      <span className="text-white font-semibold">{BANK.accountName}</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-slate-400">ID (Cédula)</span>
-                      <span className="text-white font-semibold">{BANK.identification}</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Job Description / Notes (Optional)</label>
-                    <textarea 
-                      rows={2}
-                      placeholder="Scope, metal specs, access conditions, payment notes..."
-                      value={formData.description}
-                      onChange={(e) => setFormData({...formData, description: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-
-                  <button 
-                    type="submit"
-                    className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black uppercase tracking-wider text-sm rounded-xl shadow-xl transition-all"
-                  >
-                    Generate {DOC_TYPES[docType].label}
-                  </button>
-                </form>
-              </div>
-            )}
-
-          </div>
-        </div>
-      )}
-
     </div>
 
-      {/* Documento imprimible: presupuesto, cotización o factura (solo visible al imprimir/guardar PDF) */}
-      {docResult && (
-        <div
-          id="doc-print-doc"
-          className="hidden print:block"
-          style={{ background: '#ffffff', color: '#0f172a', fontFamily: 'Arial, Helvetica, sans-serif', padding: '36px 42px' }}
-        >
-          {/* Cabecera de la empresa */}
-          <div style={{ borderBottom: '3px solid #f59e0b', paddingBottom: '16px', marginBottom: '22px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ background: '#f59e0b', color: '#0f172a', fontWeight: '900', borderRadius: '8px', padding: '8px', display: 'flex' }}>
-                  <Flame style={{ width: 22, height: 22 }} />
-                </div>
-                <span style={{ fontSize: '26px', fontWeight: '900', letterSpacing: '-0.5px' }}>
-                  SEMPER<span style={{ color: '#f59e0b' }}>IRON</span> DESIGN
-                </span>
-              </div>
-              <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '2px', color: '#64748b', marginTop: '4px' }}>
-                Mobile Welding & Fabrication
-              </p>
-            </div>
-            <div style={{ textAlign: 'right', fontSize: '12px', color: '#334155', lineHeight: '1.7' }}>
-              <div style={{ fontWeight: '700' }}>Mobile Dispatch {COMPANY.phone}</div>
-              <div>{COMPANY.email}</div>
-              <div>{COMPANY.address} — 50 mi radius</div>
-              <div>{COMPANY.tagline}</div>
-            </div>
-          </div>
-
-          {/* Título del documento (adaptado: presupuesto / cotización / factura) y datos */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '18px' }}>
-            <div>
-              <h1 style={{ fontSize: '20px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                {DOC_TYPES[docResult.type].title}
-              </h1>
-              <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', marginTop: '2px' }}>
-                {DOC_TYPES[docResult.type].label} — On-Site Welding & Metal Fabrication
-              </div>
-            </div>
-            <div style={{ fontSize: '12px', textAlign: 'right', lineHeight: '1.7' }}>
-              <div><strong>{DOC_TYPES[docResult.type].numberPrefix}:</strong> {docResult.number}</div>
-              <div><strong>Date:</strong> {docResult.date}</div>
-              {docResult.dueDate && <div><strong>Due:</strong> {docResult.dueDate}</div>}
-            </div>
-          </div>
-
-          {/* Datos del cliente */}
-          <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px 16px', marginBottom: '20px', fontSize: '13px', lineHeight: '1.7' }}>
-            <div style={{ fontWeight: '900', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '1px', color: '#64748b', marginBottom: '6px' }}>Prepared For</div>
-            <div><strong>{docResult.customer.fullName}</strong>{docResult.customer.email ? ` — ${docResult.customer.email}` : ''}</div>
-            <div>Phone: {docResult.customer.phone}</div>
-            <div>Job Site: {docResult.customer.address}</div>
-          </div>
-
-          {/* Tabla de líneas de ítems */}
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', marginBottom: '18px' }}>
-            <thead>
-              <tr>
-                <th style={printTh}>Line Item</th>
-                <th style={{ ...printTh, textAlign: 'right' }}>Cantidad</th>
-                <th style={{ ...printTh, textAlign: 'right' }}>Precio</th>
-                <th style={{ ...printTh, textAlign: 'right' }}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {docResult.items.map((it, i) => (
-                <tr key={i}>
-                  <td style={printTd}>
-                    <div style={{ fontWeight: '700' }}>{it.description}</div>
-                  </td>
-                  <td style={{ ...printTd, textAlign: 'right' }}>{it.qty} {it.unit}</td>
-                  <td style={{ ...printTd, textAlign: 'right' }}>{money(it.price)}</td>
-                  <td style={{ ...printTd, textAlign: 'right', fontWeight: '700' }}>{money(it.qty * it.price)}</td>
-                </tr>
-              ))}
-              {docResult.type === 'invoice' && (
-                <>
-                  <tr>
-                    <td style={{ ...printTd, textAlign: 'right', fontWeight: '600', borderTop: '1px solid #e2e8f0' }} colSpan={3}>Subtotal</td>
-                    <td style={{ ...printTd, textAlign: 'right', fontWeight: '700', borderTop: '1px solid #e2e8f0' }}>{money(docResult.subtotal)}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ ...printTd, textAlign: 'right', fontWeight: '600' }} colSpan={3}>Tax ({docResult.taxRate}%)</td>
-                    <td style={{ ...printTd, textAlign: 'right', fontWeight: '700' }}>{money(docResult.tax)}</td>
-                  </tr>
-                </>
-              )}
-              <tr>
-                <td style={{ ...printTd, borderTop: '2px solid #f59e0b', fontWeight: '900', fontSize: '14px' }} colSpan={3}>
-                  {docResult.type === 'invoice' ? 'Amount Due' : 'Document Total'}
-                </td>
-                <td style={{ ...printTd, borderTop: '2px solid #f59e0b', textAlign: 'right', fontSize: '18px', fontWeight: '900' }}>{money(docResult.total)}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          {/* Notas del trabajo */}
-          {docResult.description && (
-            <div style={{ fontSize: '12px', color: '#334155', marginBottom: '16px', lineHeight: '1.6' }}>
-              <div style={{ fontWeight: '700', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '1px', marginBottom: '4px' }}>Job Notes</div>
-              <div>{docResult.description}</div>
-            </div>
-          )}
-
-          {/* Datos de pago: cuenta bancaria y condiciones de adelanto/entrega */}
-          <div style={{ border: '1px solid #f59e0b', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', background: '#fffbeb' }}>
-            <div style={{ fontWeight: '900', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '1px', color: '#92400e', marginBottom: '8px' }}>Payment — Bank Transfer / Deposit</div>
-            <div style={{ fontSize: '13px', lineHeight: '1.8', color: '#0f172a' }}>
-              <div><strong>Bank:</strong> {BANK.bank} &nbsp;·&nbsp; <strong>Account #:</strong> {BANK.accountNumber}</div>
-              <div><strong>Name:</strong> {BANK.accountName}</div>
-              <div><strong>ID (Cédula):</strong> {BANK.identification}</div>
-              <div style={{ color: '#92400e', fontWeight: '600', fontSize: '12px', marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #f59e0b' }}>
-                {DOC_TYPES[docResult.type].payTerms} Please include the {DOC_TYPES[docResult.type].numberPrefix} number as payment reference.
-              </div>
-            </div>
-          </div>
-
-          {/* Términos y condiciones adaptados por tipo de documento */}
-          <div style={{ borderTop: '2px solid #f59e0b', paddingTop: '12px', fontSize: '11px', color: '#64748b', lineHeight: '1.7' }}>
-            <strong style={{ color: '#334155' }}>Terms:</strong> {DOC_TYPES[docResult.type].validity}
-            <div style={{ marginTop: '30px', textAlign: 'center', fontWeight: '700', color: '#0f172a', letterSpacing: '2px' }}>
-              — {COMPANY.name} —
-            </div>
-            <div style={{ textAlign: 'center', marginTop: '4px' }}>
-              {DOC_TYPES[docResult.type].footer}
-            </div>
-          </div>
-        </div>
-      )}
     {/* Widget flotante de captura de leads: botón fijo con formulario de visita/cotización */}
-    <LeadWidget />
+    <LeadWidget open={quoteRequestOpen} setOpen={setQuoteRequestOpen} initialMessage={leadPrefill} />
     </>
   );
 }

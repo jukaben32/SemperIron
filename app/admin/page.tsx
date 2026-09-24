@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Flame, LogOut, RefreshCw, Trash2, Inbox } from "lucide-react";
+import { Flame, LogOut, RefreshCw, Trash2, Inbox, FileText } from "lucide-react";
+import DocumentGenerator from "../components/DocumentGenerator";
 
 // Estados y colores de los leads
 const STATUSES = [
@@ -33,6 +34,7 @@ export default function AdminDashboard() {
   const [filter, setFilter] = useState("todos");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [tab, setTab] = useState<"leads" | "docs">("leads");
 
   // 1) Verifica la sesión; 2) carga los leads
   useEffect(() => {
@@ -136,7 +138,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="min-h-screen bg-slate-950 text-slate-100 print:hidden">
       {/* Barra superior */}
       <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
@@ -168,7 +170,37 @@ export default function AdminDashboard() {
         </div>
       </header>
 
+      {/* Pestañas: solicitudes de visita y generador de documentos */}
+      <nav className="mx-auto flex max-w-6xl flex-wrap items-center gap-1 px-4 pt-6">
+        <button
+          onClick={() => setTab("leads")}
+          className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
+            tab === "leads"
+              ? "border-amber-500 bg-amber-500/10 text-amber-300"
+              : "border-slate-800 bg-slate-900 text-slate-400 hover:border-slate-600"
+          }`}
+        >
+          <Inbox className="h-4 w-4" />
+          Solicitudes
+        </button>
+        <button
+          onClick={() => setTab("docs")}
+          className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
+            tab === "docs"
+              ? "border-amber-500 bg-amber-500/10 text-amber-300"
+              : "border-slate-800 bg-slate-900 text-slate-400 hover:border-slate-600"
+          }`}
+        >
+          <FileText className="h-4 w-4" />
+          Documentos
+        </button>
+      </nav>
+
       <main className="mx-auto max-w-6xl px-4 py-6">
+        {tab === "docs" ? (
+          <DocumentGenerator />
+        ) : (
+          <>
         {error && (
           <p className="mb-4 rounded-lg bg-red-500/10 px-4 py-2.5 text-sm text-red-400">{error}</p>
         )}
@@ -297,6 +329,8 @@ export default function AdminDashboard() {
             </div>
           )}
         </section>
+          </>
+        )}
       </main>
     </div>
   );

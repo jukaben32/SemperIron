@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle2, MessageSquare, Phone, Send, X } from "lucide-react";
 
 const inputCls =
@@ -8,9 +8,21 @@ const inputCls =
 
 const labelCls = "mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400";
 
-// Widget flotante: formulario de solicitud de visita/cotización que crea un lead en la API
-export default function LeadWidget() {
-  const [open, setOpen] = useState(false);
+// Widget flotante: formulario de solicitud de visita/cotización que crea un lead en la API.
+// Puede usarse de forma independiente (botón flotante propio) o controlado por la landing
+// mediante props (open/setOpen/initialMessage) para los botones "Solicitar cotización".
+interface LeadWidgetProps {
+  open?: boolean;
+  setOpen?: (open: boolean) => void;
+  initialMessage?: string;
+}
+
+export default function LeadWidget({
+  open: openProp,
+  setOpen: setOpenProp,
+  initialMessage = ""
+}: LeadWidgetProps = {}) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
@@ -23,6 +35,21 @@ export default function LeadWidget() {
     preferredDate: "",
     message: ""
   });
+
+  // Si la landing controla el modal, se usa open/setOpen de las props;
+  // si no, el widget funciona solo con su estado interno.
+  const isControlled = setOpenProp !== undefined;
+  const open = isControlled ? (openProp ?? false) : internalOpen;
+  const setOpen = (v: boolean) => (isControlled ? setOpenProp!(v) : setInternalOpen(v));
+
+  // Cuando se abre el formulario con un mensaje inicial (p. ej. el resumen del estimador),
+  // se copia ese texto en el campo "Describe el trabajo".
+  useEffect(() => {
+    if (open && initialMessage) {
+      setForm((f) => ({ ...f, message: initialMessage }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialMessage]);
 
   // Actualiza un campo del formulario
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
