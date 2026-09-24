@@ -1348,6 +1348,14 @@ href="tel:18092563749"
                   {/* Líneas de ítems */}
                   <div>
                     <label className="block text-xs font-bold text-slate-300 uppercase mb-2">Line Items</label>
+                    {/* Encabezados de las columnas del documento */}
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">
+                      <span className="flex-1">Line Item</span>
+                      <span className="w-40">Cantidad</span>
+                      <span className="w-24 text-right">Precio</span>
+                      <span className="w-24 text-right">Total</span>
+                      <span className="w-9" />
+                    </div>
                     <div className="space-y-2">
                       {docItems.map((item, idx) => (
                         <div key={item.id} className="flex items-center gap-2">
@@ -1357,36 +1365,41 @@ href="tel:18092563749"
                             placeholder={`Item ${idx + 1} description (e.g. Structural beam weld)`}
                             className="flex-1 min-w-0 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
                           />
-                          <input
-                            type="number" min="0" step="1"
-                            value={item.qty}
-                            onChange={(e) => updateDocItem(item.id, 'qty', e.target.value)}
-                            className="w-16 bg-slate-950 border border-slate-800 rounded-lg px-2 py-2.5 text-sm text-white text-center focus:outline-none focus:border-amber-500"
-                          />
-                          <select
-                            value={item.unit}
-                            onChange={(e) => updateDocItem(item.id, 'unit', e.target.value)}
-                            className="w-20 bg-slate-950 border border-slate-800 rounded-lg px-2 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
-                          >
-                            <option value="hr">hr</option>
-                            <option value="job">job</option>
-                            <option value="ft">ft</option>
-                            <option value="lb">lb</option>
-                            <option value="unit">unit</option>
-                            <option value="flat">flat</option>
-                          </select>
+                          <div className="flex gap-1 shrink-0 w-40">
+                            <input
+                              type="number" min="0" step="1"
+                              value={item.qty}
+                              onChange={(e) => updateDocItem(item.id, 'qty', e.target.value)}
+                              className="w-16 bg-slate-950 border border-slate-800 rounded-lg px-2 py-2.5 text-sm text-white text-center focus:outline-none focus:border-amber-500"
+                            />
+                            <select
+                              value={item.unit}
+                              onChange={(e) => updateDocItem(item.id, 'unit', e.target.value)}
+                              className="flex-1 min-w-0 bg-slate-950 border border-slate-800 rounded-lg px-2 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
+                            >
+                              <option value="hr">hr</option>
+                              <option value="job">job</option>
+                              <option value="ft">ft</option>
+                              <option value="lb">lb</option>
+                              <option value="unit">unit</option>
+                              <option value="flat">flat</option>
+                            </select>
+                          </div>
                           <input
                             type="number" min="0" step="0.01"
                             value={item.price}
                             onChange={(e) => updateDocItem(item.id, 'price', e.target.value)}
-                            placeholder="Price"
+                            placeholder="Precio"
                             className="w-24 bg-slate-950 border border-slate-800 rounded-lg px-2 py-2.5 text-sm text-white text-right focus:outline-none focus:border-amber-500"
                           />
+                          <span className="w-24 shrink-0 text-right text-sm text-amber-400 font-semibold">
+                            {money((Number(item.qty) || 0) * (Number(item.price) || 0))}
+                          </span>
                           <button
                             type="button"
                             onClick={() => removeDocItem(item.id)}
                             disabled={docItems.length === 1}
-                            className="p-2.5 text-slate-500 hover:text-red-400 disabled:opacity-30 rounded-lg hover:bg-slate-800 transition-colors"
+                            className="p-2.5 w-9 shrink-0 text-slate-500 hover:text-red-400 disabled:opacity-30 rounded-lg hover:bg-slate-800 transition-colors"
                             title="Remove line"
                           >
                             <Trash2 className="w-4 h-4" />
