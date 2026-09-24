@@ -36,6 +36,25 @@ import {
   Receipt
 } from 'lucide-react';
 
+// Iconos de marcas sociales (SVG inline porque lucide-react no incluye marcas)
+const FbIcon = ({ className = '' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+  </svg>
+);
+
+const IgIcon = ({ className = '' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+  </svg>
+);
+
+const TiktokIcon = ({ className = '' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
+  </svg>
+);
+
 // Estilos reutilizables para la tabla del documento imprimible (PDF)
 const printTh = { padding: '8px 10px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#334155', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '11px', textAlign: 'left' };
 const printTd = { padding: '10px', border: '1px solid #e2e8f0', color: '#0f172a', verticalAlign: 'top' };
@@ -1070,7 +1089,44 @@ href="tel:18092563749"
         </div>
       </section>
 
-      {}
+      {/* Redes sociales al final de la página */}
+      <section className="bg-slate-900 border-t border-slate-800 py-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <p className="text-lg font-black text-white uppercase tracking-wide">
+            Síguenos en <span className="text-amber-500">nuestras redes sociales</span>
+          </p>
+          <div className="mt-5 flex flex-wrap justify-center gap-3">
+            <a
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-300 transition hover:border-amber-500 hover:text-amber-400"
+            >
+              <FbIcon className="w-5 h-5" />
+              Facebook
+            </a>
+            <a
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-300 transition hover:border-amber-500 hover:text-amber-400"
+            >
+              <IgIcon className="w-5 h-5" />
+              Instagram
+            </a>
+            <a
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-300 transition hover:border-amber-500 hover:text-amber-400"
+            >
+              <TiktokIcon className="w-5 h-5" />
+              TikTok
+            </a>
+          </div>
+        </div>
+      </section>
+
       <footer className="bg-slate-950 text-slate-400 py-12 border-t border-slate-900 text-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-3">
@@ -1118,31 +1174,37 @@ href="tel:18092563749"
                 </div>
 
                 <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
+                  {/* Encabezados de la tabla de la cotización */}
+                  <div className="grid grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-5 py-2 bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    <span>Line Item</span>
+                    <span className="text-right">Cantidad</span>
+                    <span className="text-right">Precio</span>
+                    <span className="text-right">Total</span>
+                  </div>
                   <div className="divide-y divide-slate-800 text-sm">
                     {docResult.items.map((it, i) => (
-                      <div key={i} className="flex justify-between px-5 py-3 gap-4">
-                        <span className="text-slate-400 pr-4">
-                          {it.description}
-                          <span className="text-slate-500"> — {it.qty} {it.unit} × {money(it.price)}</span>
-                        </span>
-                        <span className="text-white font-semibold shrink-0">{money(it.qty * it.price)}</span>
+                      <div key={i} className="grid grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-5 py-3 items-center">
+                        <span className="text-slate-300 pr-2">{it.description}</span>
+                        <span className="text-right text-slate-400">{it.qty} {it.unit}</span>
+                        <span className="text-right text-slate-400">{money(it.price)}</span>
+                        <span className="text-right text-white font-semibold">{money(it.qty * it.price)}</span>
                       </div>
                     ))}
                     {docResult.type === 'invoice' && (
                       <>
-                        <div className="flex justify-between px-5 py-3">
-                          <span className="text-slate-400 pr-4">Subtotal</span>
-                          <span className="text-white font-semibold shrink-0">{money(docResult.subtotal)}</span>
+                        <div className="grid grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-5 py-3">
+                          <span className="col-span-3 text-slate-400 pr-4">Subtotal</span>
+                          <span className="text-right text-white font-semibold shrink-0">{money(docResult.subtotal)}</span>
                         </div>
-                        <div className="flex justify-between px-5 py-3">
-                          <span className="text-slate-400 pr-4">Tax ({docResult.taxRate}%)</span>
-                          <span className="text-white font-semibold shrink-0">{money(docResult.tax)}</span>
+                        <div className="grid grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-5 py-3">
+                          <span className="col-span-3 text-slate-400 pr-4">Tax ({docResult.taxRate}%)</span>
+                          <span className="text-right text-white font-semibold shrink-0">{money(docResult.tax)}</span>
                         </div>
                       </>
                     )}
-                    <div className="flex justify-between px-5 py-4 bg-amber-500/10 items-center">
-                      <span className="text-white font-black uppercase tracking-wide">{docResult.type === 'invoice' ? 'Amount Due' : 'Document Total'}</span>
-                      <span className="text-amber-400 text-xl font-black">{money(docResult.total)}</span>
+                    <div className="grid grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-5 py-4 bg-amber-500/10 items-center">
+                      <span className="col-span-3 text-white font-black uppercase tracking-wide">{docResult.type === 'invoice' ? 'Amount Due' : 'Document Total'}</span>
+                      <span className="text-right text-amber-400 text-xl font-black">{money(docResult.total)}</span>
                     </div>
                   </div>
                 </div>
@@ -1475,9 +1537,10 @@ href="tel:18092563749"
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', marginBottom: '18px' }}>
             <thead>
               <tr>
-                <th style={printTh}>Description</th>
-                <th style={{ ...printTh, textAlign: 'right' }}>Qty × Rate</th>
-                <th style={{ ...printTh, textAlign: 'right' }}>Amount</th>
+                <th style={printTh}>Line Item</th>
+                <th style={{ ...printTh, textAlign: 'right' }}>Cantidad</th>
+                <th style={{ ...printTh, textAlign: 'right' }}>Precio</th>
+                <th style={{ ...printTh, textAlign: 'right' }}>Total</th>
               </tr>
             </thead>
             <tbody>
@@ -1486,24 +1549,25 @@ href="tel:18092563749"
                   <td style={printTd}>
                     <div style={{ fontWeight: '700' }}>{it.description}</div>
                   </td>
-                  <td style={{ ...printTd, textAlign: 'right' }}>{it.qty} × {money(it.price)} / {it.unit}</td>
+                  <td style={{ ...printTd, textAlign: 'right' }}>{it.qty} {it.unit}</td>
+                  <td style={{ ...printTd, textAlign: 'right' }}>{money(it.price)}</td>
                   <td style={{ ...printTd, textAlign: 'right', fontWeight: '700' }}>{money(it.qty * it.price)}</td>
                 </tr>
               ))}
               {docResult.type === 'invoice' && (
                 <>
                   <tr>
-                    <td style={{ ...printTd, textAlign: 'right', fontWeight: '600', borderTop: '1px solid #e2e8f0' }} colSpan={2}>Subtotal</td>
+                    <td style={{ ...printTd, textAlign: 'right', fontWeight: '600', borderTop: '1px solid #e2e8f0' }} colSpan={3}>Subtotal</td>
                     <td style={{ ...printTd, textAlign: 'right', fontWeight: '700', borderTop: '1px solid #e2e8f0' }}>{money(docResult.subtotal)}</td>
                   </tr>
                   <tr>
-                    <td style={{ ...printTd, textAlign: 'right', fontWeight: '600' }} colSpan={2}>Tax ({docResult.taxRate}%)</td>
+                    <td style={{ ...printTd, textAlign: 'right', fontWeight: '600' }} colSpan={3}>Tax ({docResult.taxRate}%)</td>
                     <td style={{ ...printTd, textAlign: 'right', fontWeight: '700' }}>{money(docResult.tax)}</td>
                   </tr>
                 </>
               )}
               <tr>
-                <td style={{ ...printTd, borderTop: '2px solid #f59e0b', fontWeight: '900', fontSize: '14px' }} colSpan={2}>
+                <td style={{ ...printTd, borderTop: '2px solid #f59e0b', fontWeight: '900', fontSize: '14px' }} colSpan={3}>
                   {docResult.type === 'invoice' ? 'Amount Due' : 'Document Total'}
                 </td>
                 <td style={{ ...printTd, borderTop: '2px solid #f59e0b', textAlign: 'right', fontSize: '18px', fontWeight: '900' }}>{money(docResult.total)}</td>
