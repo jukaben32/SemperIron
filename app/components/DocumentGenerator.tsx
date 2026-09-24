@@ -18,7 +18,7 @@ const COMPANY = {
   name: "Semper Iron Design",
   phone: "(809) 256-3749",
   email: "dispatch@semperirondesign.com",
-  address: "Central Hub, Metro Service Area",
+  address: "Calle Consuelo #32, Sector Jhon Fitzgerald Kennedy, San Pedro de Macorís, República Dominicana",
   tagline: "AWS D1.1 Certified • OSHA 30 • Fully Insured"
 };
 
@@ -209,7 +209,7 @@ export default function DocumentGenerator() {
 
           {/* Tabla con los encabezados solicitados */}
           <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-950">
-            <div className="grid grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 border-b border-slate-800 bg-slate-900 px-5 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+            <div className="grid grid-cols-[1fr_3.5rem_4rem_4rem] sm:grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 border-b border-slate-800 bg-slate-900 px-3 py-2 text-[10px] sm:px-5 font-black uppercase tracking-widest text-slate-500">
               <span>Line Item</span>
               <span className="text-right">Cantidad</span>
               <span className="text-right">Precio</span>
@@ -217,7 +217,7 @@ export default function DocumentGenerator() {
             </div>
             <div className="divide-y divide-slate-800 text-sm">
               {docResult.items.map((it, i) => (
-                <div key={i} className="grid grid-cols-[1fr_4.5rem_5.5rem_5.5rem] items-center gap-3 px-5 py-3">
+                <div key={i} className="grid grid-cols-[1fr_3.5rem_4rem_4rem] sm:grid-cols-[1fr_4.5rem_5.5rem_5.5rem] items-center gap-3 px-3 py-3 sm:px-5">
                   <span className="pr-2 text-slate-300">{it.description}</span>
                   <span className="text-right text-slate-400">{it.qty} {it.unit}</span>
                   <span className="text-right text-slate-400">{money(it.price)}</span>
@@ -226,17 +226,17 @@ export default function DocumentGenerator() {
               ))}
               {docResult.type === "invoice" && (
                 <>
-                  <div className="grid grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-5 py-3">
+                  <div className="grid grid-cols-[1fr_3.5rem_4rem_4rem] sm:grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-3 py-3 sm:px-5">
                     <span className="col-span-3 pr-4 text-slate-400">Subtotal</span>
                     <span className="shrink-0 text-right font-semibold text-white">{money(docResult.subtotal)}</span>
                   </div>
-                  <div className="grid grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-5 py-3">
+                  <div className="grid grid-cols-[1fr_3.5rem_4rem_4rem] sm:grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-3 py-3 sm:px-5">
                     <span className="col-span-3 pr-4 text-slate-400">Tax ({docResult.taxRate}%)</span>
                     <span className="shrink-0 text-right font-semibold text-white">{money(docResult.tax)}</span>
                   </div>
                 </>
               )}
-              <div className="grid grid-cols-[1fr_4.5rem_5.5rem_5.5rem] items-center gap-3 bg-amber-500/10 px-5 py-4">
+              <div className="grid grid-cols-[1fr_3.5rem_4rem_4rem] sm:grid-cols-[1fr_4.5rem_5.5rem_5.5rem] items-center gap-3 bg-amber-500/10 px-3 py-4 sm:px-5">
                 <span className="col-span-3 font-black uppercase tracking-wide text-white">
                   {docResult.type === "invoice" ? "Amount Due" : "Document Total"}
                 </span>
@@ -387,8 +387,8 @@ export default function DocumentGenerator() {
             {/* Líneas de ítems */}
             <div>
               <label className="mb-2 block text-xs font-bold uppercase text-slate-300">Line Items</label>
-              {/* Encabezados de las columnas del documento */}
-              <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+              {/* Encabezados de las columnas del documento (ocultos en móvil) */}
+              <div className="mb-1 hidden items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 sm:flex">
                 <span className="flex-1">Line Item</span>
                 <span className="w-40">Cantidad</span>
                 <span className="w-24 text-right">Precio</span>
@@ -397,52 +397,70 @@ export default function DocumentGenerator() {
               </div>
               <div className="space-y-2">
                 {docItems.map((item, idx) => (
-                  <div key={item.id} className="flex items-center gap-2">
+                  // En móvil cada línea se apila verticalmente para que no se desborde
+                  <div
+                    key={item.id}
+                    className="flex flex-col gap-2 rounded-xl border border-slate-800 bg-slate-900/50 p-3 sm:flex-row sm:items-center sm:gap-2 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0"
+                  >
                     <input
                       value={item.description}
                       onChange={(e) => updateDocItem(item.id, "description", e.target.value)}
                       placeholder={`Item ${idx + 1} description (e.g. Structural beam weld)`}
-                      className="min-w-0 flex-1 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none"
+                      className="min-w-0 w-full flex-1 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none"
                     />
-                    <div className="flex w-40 shrink-0 gap-1">
-                      <input
-                        type="number" min={0} step={1}
-                        value={item.qty}
-                        onChange={(e) => updateDocItem(item.id, "qty", e.target.value === "" ? 0 : Number(e.target.value))}
-                        className="w-16 rounded-lg border border-slate-800 bg-slate-950 px-2 py-2.5 text-center text-sm text-white focus:border-amber-500 focus:outline-none"
-                      />
-                      <select
-                        value={item.unit}
-                        onChange={(e) => updateDocItem(item.id, "unit", e.target.value)}
-                        className="min-w-0 flex-1 rounded-lg border border-slate-800 bg-slate-950 px-2 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none"
+                    <div className="flex items-center gap-2">
+                      {/* Cantidad + unidad */}
+                      <div className="flex flex-1 flex-col gap-1 sm:w-40 sm:flex-none sm:flex-row sm:items-center sm:gap-1">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 sm:hidden">Cantidad</span>
+                        <div className="flex flex-1 gap-1">
+                          <input
+                            type="number" min={0} step={1}
+                            value={item.qty}
+                            onChange={(e) => updateDocItem(item.id, "qty", e.target.value === "" ? 0 : Number(e.target.value))}
+                            className="w-14 rounded-lg border border-slate-800 bg-slate-950 px-2 py-2.5 text-center text-sm text-white focus:border-amber-500 focus:outline-none sm:w-16"
+                          />
+                          <select
+                            value={item.unit}
+                            onChange={(e) => updateDocItem(item.id, "unit", e.target.value)}
+                            className="min-w-0 flex-1 rounded-lg border border-slate-800 bg-slate-950 px-2 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none"
+                          >
+                            <option value="hr">hr</option>
+                            <option value="job">job</option>
+                            <option value="ft">ft</option>
+                            <option value="lb">lb</option>
+                            <option value="unit">unit</option>
+                            <option value="flat">flat</option>
+                          </select>
+                        </div>
+                      </div>
+                      {/* Precio */}
+                      <div className="flex flex-1 flex-col gap-1 sm:w-24 sm:flex-none">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 sm:hidden">Precio</span>
+                        <input
+                          type="number" min={0} step={0.01}
+                          value={item.price}
+                          onChange={(e) => updateDocItem(item.id, "price", e.target.value === "" ? 0 : Number(e.target.value))}
+                          placeholder="Precio"
+                          className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-2.5 text-right text-sm text-white focus:border-amber-500 focus:outline-none"
+                        />
+                      </div>
+                      {/* Total de la línea */}
+                      <div className="flex w-20 flex-col gap-1 sm:w-24 sm:flex-none">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-right text-slate-500 sm:hidden">Total</span>
+                        <span className="truncate text-right text-sm font-semibold text-amber-400">
+                          {money((Number(item.qty) || 0) * (Number(item.price) || 0))}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeDocItem(item.id)}
+                        disabled={docItems.length === 1}
+                        className="w-9 shrink-0 self-center rounded-lg p-2.5 text-slate-500 transition-colors hover:bg-slate-800 hover:text-red-400 disabled:opacity-30"
+                        title="Eliminar línea"
                       >
-                        <option value="hr">hr</option>
-                        <option value="job">job</option>
-                        <option value="ft">ft</option>
-                        <option value="lb">lb</option>
-                        <option value="unit">unit</option>
-                        <option value="flat">flat</option>
-                      </select>
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
-                    <input
-                      type="number" min={0} step={0.01}
-                      value={item.price}
-                      onChange={(e) => updateDocItem(item.id, "price", e.target.value === "" ? 0 : Number(e.target.value))}
-                      placeholder="Precio"
-                      className="w-24 rounded-lg border border-slate-800 bg-slate-950 px-2 py-2.5 text-right text-sm text-white focus:border-amber-500 focus:outline-none"
-                    />
-                    <span className="w-24 shrink-0 text-right text-sm font-semibold text-amber-400">
-                      {money((Number(item.qty) || 0) * (Number(item.price) || 0))}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeDocItem(item.id)}
-                      disabled={docItems.length === 1}
-                      className="w-9 shrink-0 rounded-lg p-2.5 text-slate-500 transition-colors hover:bg-slate-800 hover:text-red-400 disabled:opacity-30"
-                      title="Eliminar línea"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
                   </div>
                 ))}
               </div>
@@ -557,7 +575,7 @@ export default function DocumentGenerator() {
               <div style={{ textAlign: "right", fontSize: "12px", color: "#334155", lineHeight: 1.7 }}>
                 <div style={{ fontWeight: 700 }}>Mobile Dispatch {COMPANY.phone}</div>
                 <div>{COMPANY.email}</div>
-                <div>{COMPANY.address} — 50 mi radius</div>
+                <div>{COMPANY.address}</div>
                 <div>{COMPANY.tagline}</div>
               </div>
             </div>

@@ -256,9 +256,7 @@ export default function App() {
   return (
     <>
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased selection:bg-amber-500 selection:text-slate-950">
-      
-      {}
-      <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-600 text-slate-950 text-xs sm:text-sm font-semibold py-2 px-4 shadow-lg sticky top-0 z-50">
+      <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-600 text-slate-950 text-xs sm:text-sm font-semibold py-2 px-4 shadow-lg">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
           <div className="flex items-center gap-2">
             <span className="flex h-2 w-2 rounded-full bg-slate-950 animate-ping" />
@@ -281,8 +279,7 @@ export default function App() {
         </div>
       </div>
 
-      {}
-      <nav className="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-[36px] z-40">
+      <nav className="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-lg shadow-orange-500/20 text-slate-950">
@@ -316,7 +313,6 @@ export default function App() {
         </div>
       </nav>
 
-      {}
       <section className="relative pt-12 pb-20 md:pt-20 md:pb-32 overflow-hidden bg-slate-950">
         {/* Background Radial Glow */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-amber-500/10 rounded-full blur-[120px] pointer-events-none" />
@@ -410,7 +406,6 @@ href="tel:18092563749"
         </div>
       </section>
 
-      {}
       <section id="certifications" className="border-y border-slate-800/80 bg-slate-900/50 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <p className="text-center text-xs font-bold uppercase tracking-widest text-slate-400 mb-6">
@@ -437,7 +432,6 @@ href="tel:18092563749"
         </div>
       </section>
 
-      {}
       <section id="services" className="py-24 bg-slate-950">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
@@ -571,7 +565,6 @@ href="tel:18092563749"
         </div>
       </section>
 
-      {}
       <section id="calculator" className="py-20 bg-slate-900 border-y border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
@@ -695,7 +688,6 @@ href="tel:18092563749"
         </div>
       </section>
 
-      {}
       <section id="portfolio" className="py-24 bg-slate-950">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
@@ -777,7 +769,6 @@ href="tel:18092563749"
         </div>
       </section>
 
-      {}
       <section id="coverage" className="py-20 bg-slate-900 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
@@ -835,7 +826,6 @@ href="tel:18092563749"
         </div>
       </section>
 
-      {}
       <section className="py-24 bg-slate-950">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
@@ -874,7 +864,6 @@ href="tel:18092563749"
         </div>
       </section>
 
-      {}
       <section className="py-20 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-600 text-slate-950 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 space-y-6">
           <h2 className="text-3xl sm:text-5xl font-black uppercase tracking-tight leading-tight">

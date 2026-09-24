@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Flame, LogOut, RefreshCw, Trash2, Inbox, FileText } from "lucide-react";
+import { ExternalLink, Flame, LogOut, RefreshCw, Trash2, Inbox, FileText, Sparkles } from "lucide-react";
 import DocumentGenerator from "../components/DocumentGenerator";
 
 // Estados y colores de los leads
@@ -27,6 +27,13 @@ interface Lead {
   created_at: string;
 }
 
+// Texto de ayuda: instrucciones listas para pegar en Gemini y calcular materiales
+const GEMINI_PROMPT = `Eres un maestro soldador y fabricador de estructuras metálicas. Te voy a dar una tarea/trabajo de soldadura (y quizás una foto del lugar). Quiero que calcules los materiales necesarios:
+- Vigas H, barras cuadradas, perfiles, tubos o planchas (cantidad en pies o metros)
+- Libras de varillas/electrodos para soldar
+- Cortes, herramientas y consejos de seguridad
+Si te subo una foto, describe el trabajo y estima las cantidades.`;
+
 // Panel de administración: lista de leads con cambios de estado
 export default function AdminDashboard() {
   const router = useRouter();
@@ -34,7 +41,8 @@ export default function AdminDashboard() {
   const [filter, setFilter] = useState("todos");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"leads" | "docs">("leads");
+  const [tab, setTab] = useState<"leads" | "docs" | "gemini">("leads");
+  const [copied, setCopied] = useState(false);
 
   // 1) Verifica la sesión; 2) carga los leads
   useEffect(() => {
@@ -137,21 +145,32 @@ export default function AdminDashboard() {
     return (value && map[value]) || value || "—";
   }
 
+  // Copia la instrucción de ayuda para Gemini al portapapeles
+  async function copyPrompt() {
+    try {
+      await navigator.clipboard.writeText(GEMINI_PROMPT);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // sin soporte de portapapeles: se ignora
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 print:hidden">
       {/* Barra superior */}
       <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500">
               <Flame className="h-5 w-5 text-slate-950" />
             </div>
             <div>
               <h1 className="text-sm font-black uppercase tracking-wide">Semper Iron</h1>
-              <p className="text-[11px] text-slate-400">Panel de leads</p>
+              <p className="text-[11px] text-slate-400">Panel de control</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={loadLeads}
               className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 hover:border-amber-500 hover:text-amber-400"
@@ -170,7 +189,7 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      {/* Pestañas: solicitudes de visita y generador de documentos */}
+      {/* Pestañas: solicitudes de visita, generador de documentos y Gemini */}
       <nav className="mx-auto flex max-w-6xl flex-wrap items-center gap-1 px-4 pt-6">
         <button
           onClick={() => setTab("leads")}
@@ -194,11 +213,77 @@ export default function AdminDashboard() {
           <FileText className="h-4 w-4" />
           Documentos
         </button>
+        <button
+          onClick={() => setTab("gemini")}
+          className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
+            tab === "gemini"
+              ? "border-amber-500 bg-amber-500/10 text-amber-300"
+              : "border-slate-800 bg-slate-900 text-slate-400 hover:border-slate-600"
+          }`}
+        >
+          <Sparkles className="h-4 w-4" />
+          Gemini
+        </button>
       </nav>
 
       <main className="mx-auto max-w-6xl px-4 py-6">
         {tab === "docs" ? (
           <DocumentGenerator />
+        ) : tab === "gemini" ? (
+          <section className="mx-auto max-w-2xl">
+            <div className="rounded-2xl border border-amber-500/40 bg-slate-900 p-5 sm:p-8">
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600">
+                  <Sparkles className="h-6 w-6 text-slate-950" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black uppercase tracking-tight text-slate-100">
+                    Calculador de materiales con Gemini
+                  </h2>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-400">
+                    Cuando te llegue un trabajo, abre Gemini para calcular cuántos <span className="font-semibold text-slate-200">pies o metros</span> de material necesitas
+                    (vigas&nbsp;H, barras cuadradas, perfiles, tubos, etc.), cuántas{" "}
+                    <span className="font-semibold text-slate-200">libras de varillas</span> para soldar, y para pedir diseños.
+                    Puedes <span className="font-semibold text-slate-200">subir fotos del lugar de trabajo</span> y Gemini te ayuda con el análisis.
+                  </p>
+                  <a
+                    href="https://gemini.google.com/app"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 px-5 py-3.5 text-sm font-black uppercase tracking-wide text-slate-950 shadow-lg shadow-orange-500/20 transition hover:from-amber-400 hover:to-orange-500 sm:w-auto"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Abrir Gemini
+                  </a>
+                  <p className="mt-2 text-xs text-slate-500">
+                    Se abre en una pestaña nueva. Inicia sesión con tu cuenta de Google para usarlo.
+                  </p>
+                </div>
+              </div>
+
+              {/* Instrucciones listas para copiar */}
+              <div className="mt-6 rounded-xl border border-slate-800 bg-slate-950 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">
+                    Sugerencia de instrucciones para pegar en Gemini
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={copyPrompt}
+                    className="rounded-lg border border-amber-500/50 px-3 py-1.5 text-xs font-bold text-amber-400 transition hover:bg-amber-500/10"
+                  >
+                    {copied ? "¡Copiado!" : "Copiar"}
+                  </button>
+                </div>
+                <textarea
+                  readOnly
+                  value={GEMINI_PROMPT}
+                  rows={6}
+                  className="mt-3 w-full resize-none rounded-lg border border-slate-800 bg-slate-900 px-3 py-2.5 text-sm leading-relaxed text-slate-300 outline-none"
+                />
+              </div>
+            </div>
+          </section>
         ) : (
           <>
         {error && (
