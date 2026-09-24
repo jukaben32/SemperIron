@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+/* Pequeños ajustes globales que no interfieren con la landing */
+html {
+  scroll-behavior: smooth;
+}
+body {
+  margin: 0;
+}
