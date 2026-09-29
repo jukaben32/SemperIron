@@ -76,6 +76,7 @@ interface DocItem {
   qty: number;
   unit: string;
   price: number;
+  tax: boolean; // true = a esta línea se le aplica ITBIS
 }
 
 // Resultado final del documento generado (con su desglose de subtotal e impuestos)
@@ -95,7 +96,7 @@ interface DocResult {
 }
 
 // ITBIS estándar de República Dominicana (18%)
-const DEFAULT_ITBIS = 18;
+const ITBIS_RATE = 18;
 
 // Formatea un número como moneda en dólares
 const money = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
@@ -109,24 +110,25 @@ const generateDocNumber = (prefix: string) => {
 
 export default function DocumentGenerator() {
   const [docType, setDocType] = useState<DocType>("estimate");
-  const [docItems, setDocItems] = useState<DocItem[]>([{ id: Date.now(), description: "", qty: 1, unit: "hr", price: 0 }]);
-  const [taxRate, setTaxRate] = useState(DEFAULT_ITBIS);
-  // Si es false, el documento se genera sin ITBIS
-  const [applyTax, setApplyTax] = useState(true);
+  const [docItems, setDocItems] = useState<DocItem[]>([{ id: Date.now(), description: "", qty: 1, unit: "hr", price: 0, tax: true }]);
   const [docResult, setDocResult] = useState<DocResult | null>(null);
   const [warn, setWarn] = useState("");
   const [customer, setCustomer] = useState<CustomerInfo>({ fullName: "", phone: "", email: "", address: "" });
   const [notes, setNotes] = useState("");
 
   // Añade, elimina o actualiza líneas de ítems del documento
-  const addDocItem = () => setDocItems([...docItems, { id: Date.now(), description: "", qty: 1, unit: "hr", price: 0 }]);
+  const addDocItem = () => setDocItems([...docItems, { id: Date.now(), description: "", qty: 1, unit: "hr", price: 0, tax: true }]);
   const removeDocItem = (id: number) => setDocItems(docItems.length > 1 ? docItems.filter((it) => it.id !== id) : docItems);
-  const updateDocItem = (id: number, field: string, value: string | number) =>
+  const updateDocItem = (id: number, field: string, value: string | number | boolean) =>
     setDocItems(docItems.map((it) => (it.id === id ? ({ ...it, [field]: value } as DocItem) : it)));
 
-  // Total en vivo de las líneas y del ITBIS (solo si está activado)
+  // ITBIS de una línea: 18% de (cantidad x precio), o 0 si la línea no lo lleva
+  const lineTax = (it: DocItem) => (it.tax ? (Number(it.qty) || 0) * (Number(it.price) || 0) * ITBIS_RATE / 100 : 0);
+
+  // Totales en vivo: subtotal, ITBIS (suma de las líneas que lo llevan) y total
   const itemsTotal = docItems.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
-  const itemsTax = applyTax ? (Number(taxRate) || 0) / 100 * itemsTotal : 0;
+  const itemsTax = docItems.reduce((sum, it) => sum + lineTax(it), 0);
+  const taxApplied = docItems.some((it) => it.tax);
   const grandTotal = itemsTotal + itemsTax;
 
   // Genera el documento final (presupuesto, cotización o factura) con su desglose
@@ -135,8 +137,8 @@ export default function DocumentGenerator() {
     setWarn("");
     const validItems = docItems.filter((it) => it.description.trim());
     const subtotal = validItems.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
-    const useTax = applyTax;
-    const tax = useTax ? subtotal * (Number(taxRate) || 0) / 100 : 0;
+    const useTax = validItems.some((it) => it.tax);
+    const tax = validItems.reduce((sum, it) => sum + lineTax(it), 0);
     const meta = DOC_TYPES[docType];
     const today = new Date();
     const dateStr = today.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
@@ -153,7 +155,7 @@ export default function DocumentGenerator() {
       items: validItems,
       description: notes,
       taxApplied: useTax,
-      taxRate: useTax ? Number(taxRate) : 0,
+      taxRate: ITBIS_RATE,
       subtotal,
       tax,
       total: subtotal + tax
@@ -399,6 +401,7 @@ export default function DocumentGenerator() {
                 <span className="flex-1">Line Item</span>
                 <span className="w-40">Cantidad</span>
                 <span className="w-24 text-right">Precio</span>
+                <span className="w-24 text-right">ITBIS {ITBIS_RATE}%</span>
                 <span className="w-24 text-right">Total</span>
                 <span className="w-9" />
               </div>
@@ -415,7 +418,7 @@ export default function DocumentGenerator() {
                       placeholder={`Item ${idx + 1} description (e.g. Structural beam weld)`}
                       className="min-w-0 w-full flex-1 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none"
                     />
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
                       {/* Cantidad + unidad */}
                       <div className="flex flex-1 flex-col gap-1 sm:w-40 sm:flex-none sm:flex-row sm:items-center sm:gap-1">
                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 sm:hidden">Cantidad</span>
@@ -451,6 +454,25 @@ export default function DocumentGenerator() {
                           className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-2.5 text-right text-sm text-white focus:border-amber-500 focus:outline-none"
                         />
                       </div>
+                      {/* ITBIS de la línea: se calcula solo; el interruptor lo quita o lo pone */}
+                      <div className="flex w-24 flex-col gap-1 sm:flex-none">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-right text-slate-500 sm:hidden">ITBIS</span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={item.tax}
+                          aria-label="Aplicar ITBIS a esta línea"
+                          onClick={() => updateDocItem(item.id, "tax", !item.tax)}
+                          className="flex items-center justify-end gap-1.5 rounded-lg py-2.5"
+                        >
+                          <span className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${item.tax ? "bg-amber-500" : "bg-slate-700"}`}>
+                            <span className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${item.tax ? "translate-x-4" : "translate-x-0"}`} />
+                          </span>
+                          <span className={`w-12 truncate text-right text-sm ${item.tax ? "font-semibold text-white" : "text-slate-600"}`}>
+                            {item.tax ? money(lineTax(item)) : "—"}
+                          </span>
+                        </button>
+                      </div>
                       {/* Total de la línea */}
                       <div className="flex w-20 flex-col gap-1 sm:w-24 sm:flex-none">
                         <span className="text-[10px] font-black uppercase tracking-widest text-right text-slate-500 sm:hidden">Total</span>
@@ -480,52 +502,15 @@ export default function DocumentGenerator() {
               </button>
             </div>
 
-            {/* Ventana de ITBIS: se calcula solo y se puede desactivar */}
-            <div className={`rounded-xl border p-4 transition-colors ${applyTax ? "border-amber-500/40 bg-amber-500/5" : "border-slate-800 bg-slate-950"}`}>
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-xs font-black uppercase tracking-widest text-amber-400">ITBIS</div>
-                  <p className="mt-0.5 text-xs text-slate-400">
-                    {applyTax ? "Se calcula automáticamente sobre el subtotal." : "No se aplicará ITBIS a este documento."}
-                  </p>
-                </div>
-                {/* Interruptor: aplicar / no aplicar ITBIS */}
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={applyTax}
-                  aria-label="Aplicar ITBIS"
-                  onClick={() => setApplyTax(!applyTax)}
-                  className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${applyTax ? "bg-amber-500" : "bg-slate-700"}`}
-                >
-                  <span className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white transition-transform ${applyTax ? "translate-x-5" : "translate-x-0"}`} />
-                </button>
-              </div>
-              {applyTax && (
-                <div className="mt-3 flex items-center justify-between gap-4 border-t border-amber-500/20 pt-3 text-sm">
-                  <label className="flex items-center gap-2 text-slate-300">
-                    Tasa (%)
-                    <input
-                      type="number" min={0} max={30} step={0.1}
-                      value={taxRate}
-                      onChange={(e) => setTaxRate(Number(e.target.value))}
-                      className="w-20 rounded-lg border border-slate-800 bg-slate-950 px-2 py-1.5 text-right text-white focus:border-amber-500 focus:outline-none"
-                    />
-                  </label>
-                  <span className="font-semibold text-amber-400">+ {money(itemsTax)}</span>
-                </div>
-              )}
-            </div>
-
             {/* Total en vivo */}
             <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm">
               <div className="flex justify-between text-slate-400">
                 <span>Subtotal</span>
                 <span className="font-semibold text-white">{money(itemsTotal)}</span>
               </div>
-              {applyTax && (
+              {taxApplied && (
                 <div className="flex justify-between text-slate-400">
-                  <span>ITBIS ({taxRate}%)</span>
+                  <span>ITBIS ({ITBIS_RATE}%)</span>
                   <span className="font-semibold text-white">{money(itemsTax)}</span>
                 </div>
               )}
