@@ -184,6 +184,8 @@ export default function DocumentGenerator() {
       "",
       ...lines,
       "",
+      d.taxApplied ? `*Total sin ITBIS: ${money(d.subtotal)}*` : "",
+      d.taxApplied ? `*Total ITBIS (${d.taxRate}%): ${money(d.tax)}*` : "",
       `*TOTAL: ${money(d.total)}*`,
       "",
       `*Payment:* ${BANK.bank} — Account ${BANK.accountNumber}`,
@@ -233,6 +235,18 @@ export default function DocumentGenerator() {
                   <span className="text-right font-semibold text-white">{money(it.qty * it.price + lineTax(it))}</span>
                 </div>
               ))}
+              {docResult.taxApplied && (
+                <>
+                  <div className="grid grid-cols-[1fr_3.5rem_4rem_4rem] sm:grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-3 py-3 sm:px-5">
+                    <span className="col-span-3 pr-4 text-slate-400">Total sin ITBIS</span>
+                    <span className="shrink-0 text-right font-semibold text-white">{money(docResult.subtotal)}</span>
+                  </div>
+                  <div className="grid grid-cols-[1fr_3.5rem_4rem_4rem] sm:grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-3 py-3 sm:px-5">
+                    <span className="col-span-3 pr-4 text-slate-400">Total ITBIS ({docResult.taxRate}%)</span>
+                    <span className="shrink-0 text-right font-semibold text-white">{money(docResult.tax)}</span>
+                  </div>
+                </>
+              )}
               <div className="grid grid-cols-[1fr_3.5rem_4rem_4rem] sm:grid-cols-[1fr_4.5rem_5.5rem_5.5rem] items-center gap-3 bg-amber-500/10 px-3 py-4 sm:px-5">
                 <span className="col-span-3 font-black uppercase tracking-wide text-white">
                   {docResult.type === "invoice" ? "Amount Due" : "Document Total"}
@@ -492,7 +506,19 @@ export default function DocumentGenerator() {
 
             {/* Total en vivo */}
             <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm">
-              <div className="flex justify-between font-bold text-slate-300">
+              {itemsTax > 0 && (
+                <>
+                  <div className="flex justify-between text-slate-400">
+                    <span>Total sin ITBIS</span>
+                    <span className="font-semibold text-white">{money(itemsTotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>Total ITBIS ({ITBIS_RATE}%)</span>
+                    <span className="font-semibold text-white">{money(itemsTax)}</span>
+                  </div>
+                </>
+              )}
+              <div className="mt-1 flex justify-between border-t border-slate-800 pt-2 font-bold text-slate-300">
                 <span className="uppercase tracking-wide">{docType === "invoice" ? "Amount Due" : "Document Total"}</span>
                 <span className="text-amber-400">{money(grandTotal)}</span>
               </div>
@@ -621,6 +647,18 @@ export default function DocumentGenerator() {
                     <td style={{ ...printTd, textAlign: "right", fontWeight: 700 }}>{money(it.qty * it.price + lineTax(it))}</td>
                   </tr>
                 ))}
+                {docResult.taxApplied && (
+                  <>
+                    <tr>
+                      <td style={{ ...printTd, textAlign: "right", fontWeight: 600 }} colSpan={3}>Total sin ITBIS</td>
+                      <td style={{ ...printTd, textAlign: "right", fontWeight: 700 }}>{money(docResult.subtotal)}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ ...printTd, textAlign: "right", fontWeight: 600 }} colSpan={3}>Total ITBIS ({docResult.taxRate}%)</td>
+                      <td style={{ ...printTd, textAlign: "right", fontWeight: 700 }}>{money(docResult.tax)}</td>
+                    </tr>
+                  </>
+                )}
                 <tr>
                   <td style={{ ...printTd, borderTop: "2px solid #f59e0b", fontWeight: 900, fontSize: "14px" }} colSpan={3}>
                     {docResult.type === "invoice" ? "Amount Due" : "Document Total"}
