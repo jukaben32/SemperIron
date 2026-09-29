@@ -128,7 +128,6 @@ export default function DocumentGenerator() {
   // Totales en vivo: subtotal, ITBIS (suma de las líneas que lo llevan) y total
   const itemsTotal = docItems.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
   const itemsTax = docItems.reduce((sum, it) => sum + lineTax(it), 0);
-  const taxApplied = docItems.some((it) => it.tax);
   const grandTotal = itemsTotal + itemsTax;
 
   // Genera el documento final (presupuesto, cotización o factura) con su desglose
@@ -172,7 +171,7 @@ export default function DocumentGenerator() {
       setWarn("Escribe el teléfono del cliente en el formulario para poder enviarle el documento por WhatsApp.");
       return;
     }
-    const lines = d.items.map((it) => `• ${it.description} — ${it.qty} ${it.unit} x ${money(it.price)} = ${money(it.qty * it.price)}`);
+    const lines = d.items.map((it) => `• ${it.description} — ${it.qty} ${it.unit} x ${money(it.price)} = ${money(it.qty * it.price + lineTax(it))}${it.tax ? " (incl. ITBIS)" : ""}`);
     const msg = [
       `*${meta.title} #${d.number}* - ${COMPANY.name}`,
       `Date: ${d.date}`,
@@ -185,8 +184,6 @@ export default function DocumentGenerator() {
       "",
       ...lines,
       "",
-      d.taxApplied ? `*Subtotal: ${money(d.subtotal)}*` : "",
-      d.taxApplied ? `*ITBIS (${d.taxRate}%): ${money(d.tax)}*` : "",
       `*TOTAL: ${money(d.total)}*`,
       "",
       `*Payment:* ${BANK.bank} — Account ${BANK.accountNumber}`,
@@ -227,24 +224,15 @@ export default function DocumentGenerator() {
             <div className="divide-y divide-slate-800 text-sm">
               {docResult.items.map((it, i) => (
                 <div key={i} className="grid grid-cols-[1fr_3.5rem_4rem_4rem] sm:grid-cols-[1fr_4.5rem_5.5rem_5.5rem] items-center gap-3 px-3 py-3 sm:px-5">
-                  <span className="pr-2 text-slate-300">{it.description}</span>
+                  <span className="pr-2 text-slate-300">
+                    {it.description}
+                    {it.tax && <span className="block text-[11px] text-slate-500">Incluye ITBIS {docResult.taxRate}%</span>}
+                  </span>
                   <span className="text-right text-slate-400">{it.qty} {it.unit}</span>
                   <span className="text-right text-slate-400">{money(it.price)}</span>
-                  <span className="text-right font-semibold text-white">{money(it.qty * it.price)}</span>
+                  <span className="text-right font-semibold text-white">{money(it.qty * it.price + lineTax(it))}</span>
                 </div>
               ))}
-              {docResult.taxApplied && (
-                <>
-                  <div className="grid grid-cols-[1fr_3.5rem_4rem_4rem] sm:grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-3 py-3 sm:px-5">
-                    <span className="col-span-3 pr-4 text-slate-400">Subtotal</span>
-                    <span className="shrink-0 text-right font-semibold text-white">{money(docResult.subtotal)}</span>
-                  </div>
-                  <div className="grid grid-cols-[1fr_3.5rem_4rem_4rem] sm:grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-3 py-3 sm:px-5">
-                    <span className="col-span-3 pr-4 text-slate-400">ITBIS ({docResult.taxRate}%)</span>
-                    <span className="shrink-0 text-right font-semibold text-white">{money(docResult.tax)}</span>
-                  </div>
-                </>
-              )}
               <div className="grid grid-cols-[1fr_3.5rem_4rem_4rem] sm:grid-cols-[1fr_4.5rem_5.5rem_5.5rem] items-center gap-3 bg-amber-500/10 px-3 py-4 sm:px-5">
                 <span className="col-span-3 font-black uppercase tracking-wide text-white">
                   {docResult.type === "invoice" ? "Amount Due" : "Document Total"}
@@ -477,7 +465,7 @@ export default function DocumentGenerator() {
                       <div className="flex w-20 flex-col gap-1 sm:w-24 sm:flex-none">
                         <span className="text-[10px] font-black uppercase tracking-widest text-right text-slate-500 sm:hidden">Total</span>
                         <span className="truncate text-right text-sm font-semibold text-amber-400">
-                          {money((Number(item.qty) || 0) * (Number(item.price) || 0))}
+                          {money((Number(item.qty) || 0) * (Number(item.price) || 0) + lineTax(item))}
                         </span>
                       </div>
                       <button
@@ -504,17 +492,7 @@ export default function DocumentGenerator() {
 
             {/* Total en vivo */}
             <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm">
-              <div className="flex justify-between text-slate-400">
-                <span>Subtotal</span>
-                <span className="font-semibold text-white">{money(itemsTotal)}</span>
-              </div>
-              {taxApplied && (
-                <div className="flex justify-between text-slate-400">
-                  <span>ITBIS ({ITBIS_RATE}%)</span>
-                  <span className="font-semibold text-white">{money(itemsTax)}</span>
-                </div>
-              )}
-              <div className="mt-1 flex justify-between border-t border-slate-800 pt-2 font-bold text-slate-300">
+              <div className="flex justify-between font-bold text-slate-300">
                 <span className="uppercase tracking-wide">{docType === "invoice" ? "Amount Due" : "Document Total"}</span>
                 <span className="text-amber-400">{money(grandTotal)}</span>
               </div>
@@ -636,24 +614,13 @@ export default function DocumentGenerator() {
                   <tr key={i}>
                     <td style={printTd}>
                       <div style={{ fontWeight: 700 }}>{it.description}</div>
+                      {it.tax && <div style={{ fontSize: "11px", color: "#64748b" }}>Incluye ITBIS {docResult.taxRate}%</div>}
                     </td>
                     <td style={{ ...printTd, textAlign: "right" }}>{it.qty} {it.unit}</td>
                     <td style={{ ...printTd, textAlign: "right" }}>{money(it.price)}</td>
-                    <td style={{ ...printTd, textAlign: "right", fontWeight: 700 }}>{money(it.qty * it.price)}</td>
+                    <td style={{ ...printTd, textAlign: "right", fontWeight: 700 }}>{money(it.qty * it.price + lineTax(it))}</td>
                   </tr>
                 ))}
-                {docResult.taxApplied && (
-                  <>
-                    <tr>
-                      <td style={{ ...printTd, textAlign: "right", fontWeight: 600, borderTop: "1px solid #e2e8f0" }} colSpan={3}>Subtotal</td>
-                      <td style={{ ...printTd, textAlign: "right", fontWeight: 700, borderTop: "1px solid #e2e8f0" }}>{money(docResult.subtotal)}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ ...printTd, textAlign: "right", fontWeight: 600 }} colSpan={3}>ITBIS ({docResult.taxRate}%)</td>
-                      <td style={{ ...printTd, textAlign: "right", fontWeight: 700 }}>{money(docResult.tax)}</td>
-                    </tr>
-                  </>
-                )}
                 <tr>
                   <td style={{ ...printTd, borderTop: "2px solid #f59e0b", fontWeight: 900, fontSize: "14px" }} colSpan={3}>
                     {docResult.type === "invoice" ? "Amount Due" : "Document Total"}
