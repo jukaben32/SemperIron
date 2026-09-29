@@ -5,9 +5,10 @@
 // de trabajo, ver el total en vivo, bajar el documento como PDF (imprimir/guardar) y
 // enviarlo por WhatsApp directamente al teléfono del cliente.
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Flame, MessageCircle, Plus, Printer, Receipt, Trash2 } from "lucide-react";
+import { ArrowLeft, Clock, Flame, MessageCircle, Pencil, Plus, Printer, Receipt, Trash2 } from "lucide-react";
+import { MAX_SAVED_DOCS, loadSavedDocs, persistSavedDocs, type SavedDoc } from "./savedDocs";
 
 // Estilos de la tabla del documento imprimible (PDF)
 const printTh = { padding: "8px 10px", border: "1px solid #e2e8f0", background: "#f8fafc", color: "#334155", textTransform: "uppercase", letterSpacing: "1px", fontSize: "11px", textAlign: "left" as const };
@@ -59,10 +60,10 @@ const DOC_TYPES = {
   }
 } as const;
 
-type DocType = keyof typeof DOC_TYPES;
+export type DocType = keyof typeof DOC_TYPES;
 
 // Datos del cliente del documento
-interface CustomerInfo {
+export interface CustomerInfo {
   fullName: string;
   phone: string;
   email: string;
@@ -70,7 +71,7 @@ interface CustomerInfo {
 }
 
 // Una línea de trabajo del documento (descripción, cantidad, unidad y precio)
-interface DocItem {
+export interface DocItem {
   id: number;
   description: string;
   qty: number;
@@ -135,6 +136,45 @@ export default function DocumentGenerator() {
   const [warn, setWarn] = useState("");
   const [customer, setCustomer] = useState<CustomerInfo>({ fullName: "", phone: "", email: "", address: "" });
   const [notes, setNotes] = useState("");
+  // Últimos documentos guardados y el que se está editando (si hay alguno)
+  const [savedDocs, setSavedDocs] = useState<SavedDoc[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Al abrir el panel, recupera los últimos documentos guardados en este navegador
+  useEffect(() => {
+    setSavedDocs(loadSavedDocs());
+  }, []);
+
+  // Formulario en blanco para empezar un documento nuevo
+  const blankItem = (): DocItem => ({ id: Date.now(), description: "", qty: 1, unit: "hr", price: 0, tax: true });
+  const startNewDoc = () => {
+    setEditingId(null);
+    setDocType("estimate");
+    setDocItems([blankItem()]);
+    setCustomer({ fullName: "", phone: "", email: "", address: "" });
+    setNotes("");
+    setWarn("");
+  };
+
+  // Carga un documento guardado en el formulario para corregirlo
+  const editSavedDoc = (doc: SavedDoc) => {
+    setEditingId(doc.id);
+    setDocType(doc.docType);
+    setDocItems(doc.items.length ? doc.items.map((it) => ({ ...it })) : [blankItem()]);
+    setCustomer({ ...doc.customer });
+    setNotes(doc.notes);
+    setDocResult(null);
+    setWarn("");
+  };
+
+  // Elimina un documento guardado (con confirmación)
+  const deleteSavedDoc = (doc: SavedDoc) => {
+    if (!window.confirm(`¿Eliminar ${doc.number} de los documentos recientes?`)) return;
+    const next = savedDocs.filter((d) => d.id !== doc.id);
+    setSavedDocs(next);
+    persistSavedDocs(next);
+    if (editingId === doc.id) setEditingId(null);
+  };
 
   // Añade, elimina o actualiza líneas de ítems del documento
   const addDocItem = () => setDocItems([...docItems, { id: Date.now(), description: "", qty: 1, unit: "hr", price: 0, tax: true }]);
@@ -159,9 +199,28 @@ export default function DocumentGenerator() {
     due.setDate(due.getDate() + 15);
     const dueStr = due.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
+    // Si se está editando un documento del mismo tipo, conserva su número
+    const editing = savedDocs.find((d) => d.id === editingId);
+    const number = editing && editing.docType === docType && editing.number ? editing.number : generateDocNumber(meta.numberPrefix);
+
+    // Guarda (o actualiza) el documento entre los últimos 3
+    const entry: SavedDoc = {
+      id: editingId ?? String(Date.now()),
+      number,
+      docType,
+      customer: { ...customer },
+      items: validItems,
+      notes,
+      savedAt: today.toISOString()
+    };
+    const nextSaved = [entry, ...savedDocs.filter((d) => d.id !== entry.id)].slice(0, MAX_SAVED_DOCS);
+    setSavedDocs(nextSaved);
+    persistSavedDocs(nextSaved);
+    setEditingId(entry.id);
+
     setDocResult({
       type: docType,
-      number: generateDocNumber(meta.numberPrefix),
+      number,
       date: dateStr,
       dueDate: docType === "invoice" ? dueStr : null,
       customer: { ...customer },
@@ -343,6 +402,60 @@ export default function DocumentGenerator() {
             <h3 className="text-2xl font-black uppercase text-white">Estimate • Quote • Invoice</h3>
             <p className="mt-1 text-xs text-slate-400">Crea aquí el documento profesional para tu cliente.</p>
           </div>
+
+          {/* Últimos documentos guardados: se pueden abrir para corregirlos */}
+          {savedDocs.length > 0 && (
+            <div className="mb-6 rounded-xl border border-slate-800 bg-slate-950 p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-amber-400">
+                  <Clock className="h-3.5 w-3.5" />Últimos documentos
+                </span>
+                {editingId && (
+                  <button
+                    type="button"
+                    onClick={startNewDoc}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-amber-400 transition-colors hover:text-amber-300"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Nuevo documento
+                  </button>
+                )}
+              </div>
+              <ul className="space-y-2">
+                {savedDocs.map((doc) => (
+                  <li
+                    key={doc.id}
+                    className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${
+                      editingId === doc.id ? "border-amber-500/60 bg-amber-500/5" : "border-slate-800 bg-slate-900"
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-bold text-white">{doc.number} · {doc.customer.fullName || "Sin nombre"}</div>
+                      <div className="truncate text-xs text-slate-400">
+                        {DOC_TYPES[doc.docType].label}
+                        {doc.savedAt ? ` · ${new Date(doc.savedAt).toLocaleDateString("es-DO", { day: "numeric", month: "short" })}` : ""}
+                        {` · Mano de obra ${money(computeTotals(doc.items).labor)}`}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => editSavedDoc(doc)}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-amber-500/40 px-3 py-2 text-xs font-bold text-amber-400 transition-colors hover:bg-amber-500 hover:text-slate-950"
+                    >
+                      <Pencil className="h-3.5 w-3.5" /> Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteSavedDoc(doc)}
+                      className="shrink-0 rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-800 hover:text-red-400"
+                      title="Eliminar de recientes"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <form onSubmit={handleDocSubmit} className="space-y-4">
             {/* Tipo de documento */}
@@ -588,7 +701,7 @@ export default function DocumentGenerator() {
               type="submit"
               className="w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 py-4 text-sm font-black uppercase tracking-wider text-slate-950 shadow-xl transition-all hover:from-amber-400 hover:to-orange-500"
             >
-              Generar {DOC_TYPES[docType].label}
+              {editingId ? "Guardar cambios y generar" : "Generar"} {DOC_TYPES[docType].label}
             </button>
           </form>
         </div>
@@ -704,14 +817,14 @@ export default function DocumentGenerator() {
 
             {/* Notas del trabajo */}
             {docResult.description && (
-              <div style={{ fontSize: "12px", color: "#334155", marginBottom: "16px", lineHeight: 1.6 }}>
+              <div style={{ fontSize: "12px", color: "#334155", marginBottom: "16px", lineHeight: 1.6, breakInside: "avoid" }}>
                 <div style={{ fontWeight: 700, textTransform: "uppercase", fontSize: "11px", letterSpacing: "1px", marginBottom: "4px" }}>Job Notes</div>
                 <div>{docResult.description}</div>
               </div>
             )}
 
             {/* Datos de pago */}
-            <div style={{ border: "1px solid #f59e0b", borderRadius: "8px", padding: "12px 16px", marginBottom: "16px", background: "#fffbeb" }}>
+            <div style={{ border: "1px solid #f59e0b", borderRadius: "8px", padding: "12px 16px", marginBottom: "16px", background: "#fffbeb", breakInside: "avoid" }}>
               <div style={{ fontWeight: 900, textTransform: "uppercase", fontSize: "11px", letterSpacing: "1px", color: "#92400e", marginBottom: "8px" }}>Payment — Bank Transfer / Deposit</div>
               <div style={{ fontSize: "13px", lineHeight: 1.8, color: "#0f172a" }}>
                 <div><strong>Bank:</strong> {BANK.bank} &nbsp;·&nbsp; <strong>Account #:</strong> {BANK.accountNumber}</div>
@@ -724,7 +837,7 @@ export default function DocumentGenerator() {
             </div>
 
             {/* Términos */}
-            <div style={{ borderTop: "2px solid #f59e0b", paddingTop: "12px", fontSize: "11px", color: "#64748b", lineHeight: 1.7 }}>
+            <div style={{ borderTop: "2px solid #f59e0b", paddingTop: "12px", fontSize: "11px", color: "#64748b", lineHeight: 1.7, breakInside: "avoid" }}>
               <strong style={{ color: "#334155" }}>Terms:</strong> {DOC_TYPES[docResult.type].validity}
               <div style={{ marginTop: "30px", textAlign: "center", fontWeight: 700, color: "#0f172a", letterSpacing: "2px" }}>
                 — {COMPANY.name} —
