@@ -38,7 +38,7 @@ const DOC_TYPES = {
     title: "COST ESTIMATE",
     numberPrefix: "EST",
     validity: "This cost estimate is valid for 15 days from the date above. Final charges may vary with on-site conditions, material prices, and power access.",
-    payTerms: "Advance: 50% deposit to schedule the job. Balance due upon completion.",
+    payTerms: "Advance: 40% deposit to schedule the job. Balance due upon completion.",
     footer: "Estimates are non-binding and become a fixed quotation only after written acceptance."
   },
   quote: {
@@ -46,7 +46,7 @@ const DOC_TYPES = {
     title: "QUOTATION",
     numberPrefix: "QTE",
     validity: "This quotation is valid for 30 days from the date above. Changes to scope, material, or site conditions may adjust the quoted price.",
-    payTerms: "Advance: 50% deposit to confirm the job and order materials. Balance due on completion.",
+    payTerms: "Advance: 40% deposit to confirm the job and order materials. Balance due on completion.",
     footer: "Work is authorized upon confirmation of accepted terms. Labor warranty covers workmanship only."
   },
   invoice: {
@@ -90,16 +90,36 @@ interface DocResult {
   description: string;
   taxApplied: boolean;
   taxRate: number;
-  subtotal: number;
-  tax: number;
-  total: number;
+  subtotal: number; // materiales sin ITBIS
+  tax: number; // ITBIS total
+  materials: number; // materiales con ITBIS
+  labor: number; // costo de la mano de obra
+  advance: number; // adelanto (40% de la mano de obra)
 }
 
 // ITBIS estándar de República Dominicana (18%)
 const ITBIS_RATE = 18;
+// La mano de obra se calcula como 118% del total de materiales (con ITBIS)
+const LABOR_FACTOR = 1.18;
+// Porcentaje de adelanto sobre la mano de obra
+const ADVANCE_PERCENT = 40;
+
+// ITBIS de una línea: 18% de (cantidad x precio), o 0 si la línea no lleva ITBIS
+const lineTax = (it: DocItem) => (it.tax ? (Number(it.qty) || 0) * (Number(it.price) || 0) * ITBIS_RATE / 100 : 0);
+
+// Calcula todos los totales del documento a partir de sus líneas
+const computeTotals = (items: DocItem[]) => {
+  const subtotal = items.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
+  const tax = items.reduce((sum, it) => sum + lineTax(it), 0);
+  const materials = subtotal + tax;
+  const labor = materials * LABOR_FACTOR;
+  // El adelanto es el 40% de la mano de obra (el 118% de los materiales con ITBIS)
+  const advance = labor * ADVANCE_PERCENT / 100;
+  return { subtotal, tax, materials, labor, advance };
+};
 
 // Formatea un número como moneda en dólares
-const money = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
+const money = (n: number) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // Genera un número de documento único según su prefijo: EST-2026-4821, QTE-2026-7731 o INV-2026-9044
 const generateDocNumber = (prefix: string) => {
@@ -122,22 +142,16 @@ export default function DocumentGenerator() {
   const updateDocItem = (id: number, field: string, value: string | number | boolean) =>
     setDocItems(docItems.map((it) => (it.id === id ? ({ ...it, [field]: value } as DocItem) : it)));
 
-  // ITBIS de una línea: 18% de (cantidad x precio), o 0 si la línea no lo lleva
-  const lineTax = (it: DocItem) => (it.tax ? (Number(it.qty) || 0) * (Number(it.price) || 0) * ITBIS_RATE / 100 : 0);
-
-  // Totales en vivo: subtotal, ITBIS (suma de las líneas que lo llevan) y total
-  const itemsTotal = docItems.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
-  const itemsTax = docItems.reduce((sum, it) => sum + lineTax(it), 0);
-  const grandTotal = itemsTotal + itemsTax;
+  // Totales en vivo (materiales, ITBIS, mano de obra, total y adelanto)
+  const live = computeTotals(docItems);
 
   // Genera el documento final (presupuesto, cotización o factura) con su desglose
   const handleDocSubmit = (e: FormEvent) => {
     e.preventDefault();
     setWarn("");
     const validItems = docItems.filter((it) => it.description.trim());
-    const subtotal = validItems.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
+    const totals = computeTotals(validItems);
     const useTax = validItems.some((it) => it.tax);
-    const tax = validItems.reduce((sum, it) => sum + lineTax(it), 0);
     const meta = DOC_TYPES[docType];
     const today = new Date();
     const dateStr = today.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
@@ -155,9 +169,7 @@ export default function DocumentGenerator() {
       description: notes,
       taxApplied: useTax,
       taxRate: ITBIS_RATE,
-      subtotal,
-      tax,
-      total: subtotal + tax
+      ...totals
     });
   };
 
@@ -186,7 +198,9 @@ export default function DocumentGenerator() {
       "",
       d.taxApplied ? `*Total sin ITBIS: ${money(d.subtotal)}*` : "",
       d.taxApplied ? `*Total ITBIS (${d.taxRate}%): ${money(d.tax)}*` : "",
-      `*TOTAL: ${money(d.total)}*`,
+      `*Total materiales: ${money(d.materials)}*`,
+      `*Mano de obra: ${money(d.labor)}*`,
+      `*Advance (${ADVANCE_PERCENT}%): ${money(d.advance)}*`,
       "",
       `*Payment:* ${BANK.bank} — Account ${BANK.accountNumber}`,
       `Name: ${BANK.accountName} (Cédula ${BANK.identification})`,
@@ -247,11 +261,17 @@ export default function DocumentGenerator() {
                   </div>
                 </>
               )}
+              <div className="grid grid-cols-[1fr_3.5rem_4rem_4rem] sm:grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-3 py-3 sm:px-5">
+                <span className="col-span-3 pr-4 text-slate-400">Total materiales</span>
+                <span className="shrink-0 text-right font-semibold text-white">{money(docResult.materials)}</span>
+              </div>
               <div className="grid grid-cols-[1fr_3.5rem_4rem_4rem] sm:grid-cols-[1fr_4.5rem_5.5rem_5.5rem] items-center gap-3 bg-amber-500/10 px-3 py-4 sm:px-5">
-                <span className="col-span-3 font-black uppercase tracking-wide text-white">
-                  {docResult.type === "invoice" ? "Amount Due" : "Document Total"}
-                </span>
-                <span className="text-right text-xl font-black text-amber-400">{money(docResult.total)}</span>
+                <span className="col-span-3 font-black uppercase tracking-wide text-white">Mano de obra</span>
+                <span className="text-right text-lg font-black text-amber-400">{money(docResult.labor)}</span>
+              </div>
+              <div className="grid grid-cols-[1fr_3.5rem_4rem_4rem] sm:grid-cols-[1fr_4.5rem_5.5rem_5.5rem] items-center gap-3 px-3 py-4 sm:px-5">
+                <span className="col-span-3 font-black uppercase tracking-wide text-amber-300">Advance ({ADVANCE_PERCENT}%)</span>
+                <span className="text-right text-lg font-black text-amber-300">{money(docResult.advance)}</span>
               </div>
             </div>
           </div>
@@ -506,21 +526,29 @@ export default function DocumentGenerator() {
 
             {/* Total en vivo */}
             <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm">
-              {itemsTax > 0 && (
+              {live.tax > 0 && (
                 <>
                   <div className="flex justify-between text-slate-400">
                     <span>Total sin ITBIS</span>
-                    <span className="font-semibold text-white">{money(itemsTotal)}</span>
+                    <span className="font-semibold text-white">{money(live.subtotal)}</span>
                   </div>
                   <div className="flex justify-between text-slate-400">
                     <span>Total ITBIS ({ITBIS_RATE}%)</span>
-                    <span className="font-semibold text-white">{money(itemsTax)}</span>
+                    <span className="font-semibold text-white">{money(live.tax)}</span>
                   </div>
                 </>
               )}
+              <div className="flex justify-between text-slate-400">
+                <span>Total materiales</span>
+                <span className="font-semibold text-white">{money(live.materials)}</span>
+              </div>
               <div className="mt-1 flex justify-between border-t border-slate-800 pt-2 font-bold text-slate-300">
-                <span className="uppercase tracking-wide">{docType === "invoice" ? "Amount Due" : "Document Total"}</span>
-                <span className="text-amber-400">{money(grandTotal)}</span>
+                <span className="uppercase tracking-wide">Mano de obra</span>
+                <span className="text-amber-400">{money(live.labor)}</span>
+              </div>
+              <div className="mt-1 flex justify-between font-bold text-amber-300">
+                <span className="uppercase tracking-wide">Advance ({ADVANCE_PERCENT}%)</span>
+                <span>{money(live.advance)}</span>
               </div>
             </div>
 
@@ -660,10 +688,16 @@ export default function DocumentGenerator() {
                   </>
                 )}
                 <tr>
-                  <td style={{ ...printTd, borderTop: "2px solid #f59e0b", fontWeight: 900, fontSize: "14px" }} colSpan={3}>
-                    {docResult.type === "invoice" ? "Amount Due" : "Document Total"}
-                  </td>
-                  <td style={{ ...printTd, borderTop: "2px solid #f59e0b", textAlign: "right", fontSize: "18px", fontWeight: 900 }}>{money(docResult.total)}</td>
+                  <td style={{ ...printTd, textAlign: "right", fontWeight: 600 }} colSpan={3}>Total materiales</td>
+                  <td style={{ ...printTd, textAlign: "right", fontWeight: 700 }}>{money(docResult.materials)}</td>
+                </tr>
+                <tr>
+                  <td style={{ ...printTd, borderTop: "2px solid #f59e0b", fontWeight: 900, fontSize: "14px", textTransform: "uppercase", letterSpacing: "1px" }} colSpan={3}>Mano de obra</td>
+                  <td style={{ ...printTd, borderTop: "2px solid #f59e0b", textAlign: "right", fontSize: "18px", fontWeight: 900 }}>{money(docResult.labor)}</td>
+                </tr>
+                <tr>
+                  <td style={{ ...printTd, fontWeight: 900, fontSize: "14px", textTransform: "uppercase", letterSpacing: "1px", background: "#fffbeb", color: "#92400e" }} colSpan={3}>Advance ({ADVANCE_PERCENT}%)</td>
+                  <td style={{ ...printTd, textAlign: "right", fontSize: "18px", fontWeight: 900, background: "#fffbeb", color: "#92400e" }}>{money(docResult.advance)}</td>
                 </tr>
               </tbody>
             </table>
