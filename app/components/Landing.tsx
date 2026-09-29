@@ -220,7 +220,7 @@ export default function App() {
       title: "Emergency Fleet Trailer Chassis Weld",
       category: "repair",
       location: "Interstate I-95 Rest Area",
-      image: "https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=800&q=80",
+      image: "https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=800&q=80",
       description: "24/7 roadside mobile repair for fractured main chassis crossmember on semi-truck.",
       specs: ["Dual-Shield Flux-Core", "Mobile Rig On-site", "Under 2 Hours Response"]
     }
