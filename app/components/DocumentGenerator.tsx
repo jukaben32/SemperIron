@@ -87,11 +87,15 @@ interface DocResult {
   customer: CustomerInfo;
   items: DocItem[];
   description: string;
+  taxApplied: boolean;
   taxRate: number;
   subtotal: number;
   tax: number;
   total: number;
 }
+
+// ITBIS estándar de República Dominicana (18%)
+const DEFAULT_ITBIS = 18;
 
 // Formatea un número como moneda en dólares
 const money = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
@@ -106,7 +110,9 @@ const generateDocNumber = (prefix: string) => {
 export default function DocumentGenerator() {
   const [docType, setDocType] = useState<DocType>("estimate");
   const [docItems, setDocItems] = useState<DocItem[]>([{ id: Date.now(), description: "", qty: 1, unit: "hr", price: 0 }]);
-  const [taxRate, setTaxRate] = useState(8);
+  const [taxRate, setTaxRate] = useState(DEFAULT_ITBIS);
+  // Si es false, el documento se genera sin ITBIS
+  const [applyTax, setApplyTax] = useState(true);
   const [docResult, setDocResult] = useState<DocResult | null>(null);
   const [warn, setWarn] = useState("");
   const [customer, setCustomer] = useState<CustomerInfo>({ fullName: "", phone: "", email: "", address: "" });
@@ -118,10 +124,10 @@ export default function DocumentGenerator() {
   const updateDocItem = (id: number, field: string, value: string | number) =>
     setDocItems(docItems.map((it) => (it.id === id ? ({ ...it, [field]: value } as DocItem) : it)));
 
-  // Total en vivo de las líneas (y del impuesto si es factura)
+  // Total en vivo de las líneas y del ITBIS (solo si está activado)
   const itemsTotal = docItems.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
-  const itemsTax = (Number(taxRate) || 0) / 100 * itemsTotal;
-  const grandTotal = docType === "invoice" ? itemsTotal + itemsTax : itemsTotal;
+  const itemsTax = applyTax ? (Number(taxRate) || 0) / 100 * itemsTotal : 0;
+  const grandTotal = itemsTotal + itemsTax;
 
   // Genera el documento final (presupuesto, cotización o factura) con su desglose
   const handleDocSubmit = (e: FormEvent) => {
@@ -129,7 +135,7 @@ export default function DocumentGenerator() {
     setWarn("");
     const validItems = docItems.filter((it) => it.description.trim());
     const subtotal = validItems.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
-    const useTax = docType === "invoice";
+    const useTax = applyTax;
     const tax = useTax ? subtotal * (Number(taxRate) || 0) / 100 : 0;
     const meta = DOC_TYPES[docType];
     const today = new Date();
@@ -142,10 +148,11 @@ export default function DocumentGenerator() {
       type: docType,
       number: generateDocNumber(meta.numberPrefix),
       date: dateStr,
-      dueDate: useTax ? dueStr : null,
+      dueDate: docType === "invoice" ? dueStr : null,
       customer: { ...customer },
       items: validItems,
       description: notes,
+      taxApplied: useTax,
       taxRate: useTax ? Number(taxRate) : 0,
       subtotal,
       tax,
@@ -176,8 +183,8 @@ export default function DocumentGenerator() {
       "",
       ...lines,
       "",
-      d.type === "invoice" ? `*Subtotal: ${money(d.subtotal)}*` : "",
-      d.type === "invoice" ? `*Tax (${d.taxRate}%): ${money(d.tax)}*` : "",
+      d.taxApplied ? `*Subtotal: ${money(d.subtotal)}*` : "",
+      d.taxApplied ? `*ITBIS (${d.taxRate}%): ${money(d.tax)}*` : "",
       `*TOTAL: ${money(d.total)}*`,
       "",
       `*Payment:* ${BANK.bank} — Account ${BANK.accountNumber}`,
@@ -224,14 +231,14 @@ export default function DocumentGenerator() {
                   <span className="text-right font-semibold text-white">{money(it.qty * it.price)}</span>
                 </div>
               ))}
-              {docResult.type === "invoice" && (
+              {docResult.taxApplied && (
                 <>
                   <div className="grid grid-cols-[1fr_3.5rem_4rem_4rem] sm:grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-3 py-3 sm:px-5">
                     <span className="col-span-3 pr-4 text-slate-400">Subtotal</span>
                     <span className="shrink-0 text-right font-semibold text-white">{money(docResult.subtotal)}</span>
                   </div>
                   <div className="grid grid-cols-[1fr_3.5rem_4rem_4rem] sm:grid-cols-[1fr_4.5rem_5.5rem_5.5rem] gap-3 px-3 py-3 sm:px-5">
-                    <span className="col-span-3 pr-4 text-slate-400">Tax ({docResult.taxRate}%)</span>
+                    <span className="col-span-3 pr-4 text-slate-400">ITBIS ({docResult.taxRate}%)</span>
                     <span className="shrink-0 text-right font-semibold text-white">{money(docResult.tax)}</span>
                   </div>
                 </>
@@ -473,18 +480,42 @@ export default function DocumentGenerator() {
               </button>
             </div>
 
-            {/* Impuestos (solo factura) */}
-            {docType === "invoice" && (
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase text-slate-300">Tax Rate (%)</label>
-                <input
-                  type="number" min={0} max={30} step={0.1}
-                  value={taxRate}
-                  onChange={(e) => setTaxRate(Number(e.target.value))}
-                  className="w-full rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm text-white focus:border-amber-500 focus:outline-none"
-                />
+            {/* Ventana de ITBIS: se calcula solo y se puede desactivar */}
+            <div className={`rounded-xl border p-4 transition-colors ${applyTax ? "border-amber-500/40 bg-amber-500/5" : "border-slate-800 bg-slate-950"}`}>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-xs font-black uppercase tracking-widest text-amber-400">ITBIS</div>
+                  <p className="mt-0.5 text-xs text-slate-400">
+                    {applyTax ? "Se calcula automáticamente sobre el subtotal." : "No se aplicará ITBIS a este documento."}
+                  </p>
+                </div>
+                {/* Interruptor: aplicar / no aplicar ITBIS */}
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={applyTax}
+                  aria-label="Aplicar ITBIS"
+                  onClick={() => setApplyTax(!applyTax)}
+                  className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${applyTax ? "bg-amber-500" : "bg-slate-700"}`}
+                >
+                  <span className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white transition-transform ${applyTax ? "translate-x-5" : "translate-x-0"}`} />
+                </button>
               </div>
-            )}
+              {applyTax && (
+                <div className="mt-3 flex items-center justify-between gap-4 border-t border-amber-500/20 pt-3 text-sm">
+                  <label className="flex items-center gap-2 text-slate-300">
+                    Tasa (%)
+                    <input
+                      type="number" min={0} max={30} step={0.1}
+                      value={taxRate}
+                      onChange={(e) => setTaxRate(Number(e.target.value))}
+                      className="w-20 rounded-lg border border-slate-800 bg-slate-950 px-2 py-1.5 text-right text-white focus:border-amber-500 focus:outline-none"
+                    />
+                  </label>
+                  <span className="font-semibold text-amber-400">+ {money(itemsTax)}</span>
+                </div>
+              )}
+            </div>
 
             {/* Total en vivo */}
             <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm">
@@ -492,9 +523,9 @@ export default function DocumentGenerator() {
                 <span>Subtotal</span>
                 <span className="font-semibold text-white">{money(itemsTotal)}</span>
               </div>
-              {docType === "invoice" && (
+              {applyTax && (
                 <div className="flex justify-between text-slate-400">
-                  <span>Tax ({taxRate}%)</span>
+                  <span>ITBIS ({taxRate}%)</span>
                   <span className="font-semibold text-white">{money(itemsTax)}</span>
                 </div>
               )}
@@ -626,14 +657,14 @@ export default function DocumentGenerator() {
                     <td style={{ ...printTd, textAlign: "right", fontWeight: 700 }}>{money(it.qty * it.price)}</td>
                   </tr>
                 ))}
-                {docResult.type === "invoice" && (
+                {docResult.taxApplied && (
                   <>
                     <tr>
                       <td style={{ ...printTd, textAlign: "right", fontWeight: 600, borderTop: "1px solid #e2e8f0" }} colSpan={3}>Subtotal</td>
                       <td style={{ ...printTd, textAlign: "right", fontWeight: 700, borderTop: "1px solid #e2e8f0" }}>{money(docResult.subtotal)}</td>
                     </tr>
                     <tr>
-                      <td style={{ ...printTd, textAlign: "right", fontWeight: 600 }} colSpan={3}>Tax ({docResult.taxRate}%)</td>
+                      <td style={{ ...printTd, textAlign: "right", fontWeight: 600 }} colSpan={3}>ITBIS ({docResult.taxRate}%)</td>
                       <td style={{ ...printTd, textAlign: "right", fontWeight: 700 }}>{money(docResult.tax)}</td>
                     </tr>
                   </>
